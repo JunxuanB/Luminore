@@ -20,6 +20,7 @@ private enum WireKeys: String, CodingKey {
     case snapshot
     case message
     case paused
+    case quickChat
 }
 
 extension CardSource {
@@ -125,11 +126,16 @@ extension NetworkMessage {
         case sessionSuspended
         case error
         case ping
+        case quickChat
+        case unknown
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: WireKeys.self)
-        switch try container.decode(Kind.self, forKey: .type) {
+        // Only the *discriminator* is lenient: an unfamiliar `type` means a peer on
+        // a newer build, not a corrupt frame, so it decodes to `.unknown` and is
+        // ignored downstream. A malformed payload under a known type still throws.
+        switch (try? container.decode(Kind.self, forKey: .type)) ?? .unknown {
         case .challenge: self = .challenge(try container.decode(AuthChallenge.self, forKey: .challenge))
         case .join: self = .join(try container.decode(JoinRequest.self, forKey: .request))
         case .joinResponse: self = .joinResponse(try container.decode(JoinResponse.self, forKey: .response))
@@ -148,6 +154,8 @@ extension NetworkMessage {
         case .sessionSuspended: self = .sessionSuspended
         case .error: self = .error(try container.decode(String.self, forKey: .message))
         case .ping: self = .ping
+        case .quickChat: self = .quickChat(try container.decode(QuickChatMessage.self, forKey: .quickChat))
+        case .unknown: self = .unknown
         }
     }
 
@@ -196,6 +204,11 @@ extension NetworkMessage {
             try container.encode(message, forKey: .message)
         case .ping:
             try container.encode(Kind.ping, forKey: .type)
+        case let .quickChat(message):
+            try container.encode(Kind.quickChat, forKey: .type)
+            try container.encode(message, forKey: .quickChat)
+        case .unknown:
+            try container.encode(Kind.unknown, forKey: .type)
         }
     }
 }

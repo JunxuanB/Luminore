@@ -149,6 +149,15 @@ public enum NetworkMessage: Codable, Equatable, Sendable {
     case sessionSuspended
     case error(String)
     case ping
+    /// Any peer → host → everyone else: a fixed quick-chat phrase. Purely
+    /// presentational, so it is relayed immediately and never perturbs the
+    /// authoritative game state or its versioning.
+    case quickChat(QuickChatMessage)
+    /// A payload kind this build does not recognise, i.e. a peer running a newer
+    /// version. Decoded rather than thrown so one unknown message cannot tear down
+    /// the whole frame (which would surface as a mid-match error on the internet
+    /// transport). Both dispatch switches ignore it via their `default` arm.
+    case unknown
 }
 
 public struct WireEnvelope: Codable, Equatable, Sendable {

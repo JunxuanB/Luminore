@@ -104,6 +104,8 @@ extension MatchSessionService {
         case let .action(action):
             guard peerParticipants[peer] == envelope.senderID else { return }
             apply(action, from: envelope.senderID, allowsPass: true)
+        case let .quickChat(message):
+            receiveQuickChatAsHost(message, from: peer, senderID: envelope.senderID)
         case .leave:
             peerStopped(peer, error: nil)
         default:
@@ -155,6 +157,11 @@ extension MatchSessionService {
             }
         case let .gameAnimation(animation):
             gameAnimationEvent = animation
+        case let .quickChat(message):
+            // Relayed by the host, so the envelope's senderID is the host's and the
+            // author rides in the payload. Ignore our own echo if it ever returns.
+            guard message.authorID != localID else { return }
+            presentQuickChat(message)
         case .returnToConfiguration:
             game = nil
             openingTurnTask?.cancel()

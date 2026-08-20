@@ -181,6 +181,9 @@ struct DuelGameBoardView: View {
                 GracePeriodBorder(deadline: deadline)
             }
         }
+        // Sits above the (non-interactive) flight and border layers, and below the
+        // roulette and pause covers so those hide it without any zIndex juggling.
+        .quickChatOverlay(session: session, isEnabled: tutorial == nil)
         .overlay {
             if let snapshot, let selection = session.openingTurnSelection {
                 OpeningTurnRouletteView(

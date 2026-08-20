@@ -95,6 +95,151 @@ final class MultiplayerTransportTests: XCTestCase {
         }
     }
 
+    func testQuickChatReachesEveryTransportMode() throws {
+        for mode in MultiplayerMode.allCases {
+            let hostTransport = FakeMatchTransport(mode: mode)
+            let clientTransport = FakeMatchTransport(mode: mode)
+            hostTransport.other = clientTransport
+            clientTransport.other = hostTransport
+
+            let hostID = UUID()
+            let clientID = UUID()
+            let host = MatchSessionService(
+                localID: hostID,
+                nickname: "Host",
+                mode: mode,
+                transport: hostTransport
+            )
+            let client = MatchSessionService(
+                localID: clientID,
+                nickname: "Guest",
+                mode: mode,
+                transport: clientTransport
+            )
+
+            host.host(roomName: "Chat", password: "")
+            client.join(
+                DiscoveredMatchRoom(descriptor: try XCTUnwrap(host.room?.descriptor)),
+                password: ""
+            )
+            host.enterConfiguration()
+            host.startGame()
+
+            // Client → host → (nobody else). The client echoes locally so the bubble
+            // never waits on a round trip.
+            client.sendQuickChat(.cheer)
+            let clientEcho = try XCTUnwrap(client.quickChatEvent, "client echo for \(mode)")
+            XCTAssertTrue(clientEcho.isLocalAuthor, "mode: \(mode)")
+            XCTAssertEqual(clientEcho.phrase, .cheer)
+
+            let onHost = try XCTUnwrap(host.quickChatEvent, "host receipt for \(mode)")
+            XCTAssertEqual(onHost.authorID, clientID, "mode: \(mode)")
+            XCTAssertEqual(onHost.phrase, .cheer)
+            XCTAssertFalse(onHost.isLocalAuthor)
+            // The name is resolved from the host's own roster, never from the payload.
+            XCTAssertEqual(onHost.authorName, "Guest", "mode: \(mode)")
+
+            // Host → clients.
+            host.sendQuickChat(.hurryUp)
+            let onClient = try XCTUnwrap(client.quickChatEvent, "client receipt for \(mode)")
+            XCTAssertEqual(onClient.authorID, hostID, "mode: \(mode)")
+            XCTAssertEqual(onClient.phrase, .hurryUp)
+            XCTAssertFalse(onClient.isLocalAuthor)
+            XCTAssertEqual(onClient.authorName, "Host", "mode: \(mode)")
+
+            client.leave()
+            host.leave()
+            XCTAssertNil(host.quickChatEvent, "mode: \(mode)")
+            XCTAssertNil(client.quickChatEvent, "mode: \(mode)")
+            XCTAssertNil(host.quickChatCooldownEndsAt, "mode: \(mode)")
+        }
+    }
+
+    func testQuickChatCooldownBlocksRapidSends() throws {
+        let hostTransport = FakeMatchTransport(mode: .lan)
+        let clientTransport = FakeMatchTransport(mode: .lan)
+        hostTransport.other = clientTransport
+        clientTransport.other = hostTransport
+
+        let host = MatchSessionService(
+            localID: UUID(),
+            nickname: "Host",
+            mode: .lan,
+            transport: hostTransport
+        )
+        let client = MatchSessionService(
+            localID: UUID(),
+            nickname: "Guest",
+            mode: .lan,
+            transport: clientTransport
+        )
+
+        host.host(roomName: "Cooldown", password: "")
+        client.join(
+            DiscoveredMatchRoom(descriptor: try XCTUnwrap(host.room?.descriptor)),
+            password: ""
+        )
+        host.enterConfiguration()
+        host.startGame()
+
+        let before = quickChatCount(in: hostTransport)
+        host.sendQuickChat(.cry)
+        XCTAssertFalse(host.canSendQuickChat)
+        host.sendQuickChat(.cheer)
+        XCTAssertEqual(quickChatCount(in: hostTransport) - before, 1)
+        XCTAssertEqual(host.quickChatEvent?.phrase, .cry)
+    }
+
+    func testQuickChatFromAnImpersonatingPeerIsIgnored() throws {
+        let hostTransport = FakeMatchTransport(mode: .lan)
+        let clientTransport = FakeMatchTransport(mode: .lan)
+        hostTransport.other = clientTransport
+        clientTransport.other = hostTransport
+
+        let hostID = UUID()
+        let clientID = UUID()
+        let host = MatchSessionService(
+            localID: hostID,
+            nickname: "Host",
+            mode: .lan,
+            transport: hostTransport
+        )
+        let client = MatchSessionService(
+            localID: clientID,
+            nickname: "Guest",
+            mode: .lan,
+            transport: clientTransport
+        )
+
+        host.host(roomName: "Impersonation", password: "")
+        client.join(
+            DiscoveredMatchRoom(descriptor: try XCTUnwrap(host.room?.descriptor)),
+            password: ""
+        )
+        host.enterConfiguration()
+        host.startGame()
+
+        let peer = try XCTUnwrap(host.participantPeers[clientID])
+        // The client claims the phrase came from the host's seat.
+        host.receive(
+            WireEnvelope(
+                roomID: try XCTUnwrap(host.room?.descriptor.id),
+                senderID: clientID,
+                sequence: 9_000,
+                payload: .quickChat(QuickChatMessage(authorID: hostID, phrase: .cry))
+            ),
+            from: peer
+        )
+        XCTAssertNil(host.quickChatEvent)
+    }
+
+    private func quickChatCount(in transport: FakeMatchTransport) -> Int {
+        transport.sentEnvelopes.filter {
+            if case .quickChat = $0.payload { return true }
+            return false
+        }.count
+    }
+
     func testAllTransportsUseTheSamePasswordJoinHandshake() {
         for mode in MultiplayerMode.allCases {
             let hostTransport = FakeMatchTransport(mode: mode)

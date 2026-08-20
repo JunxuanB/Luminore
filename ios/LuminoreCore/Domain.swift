@@ -85,23 +85,46 @@ public struct GameConfiguration: Codable, Equatable, Sendable {
     public var turnDurationSeconds: Int?
     public var turnGracePeriodEnabled: Bool
     public var affordableCardHighlightEnabled: Bool
+    /// Host-authored setup overrides for `.standard` matches; `nil` keeps the
+    /// printed rules, scaled to the seated player count. Ignored by `.duel`,
+    /// which has a fixed setup, but preserved across a mode round-trip so the
+    /// host does not lose their tuning by peeking at another mode.
+    public var customStandardRules: StandardCustomRules?
 
     public init(
         mode: GameMode = .standard,
         targetPrestige: Int = 15,
         turnDurationSeconds: Int? = 30,
         turnGracePeriodEnabled: Bool = true,
-        affordableCardHighlightEnabled: Bool = true
+        affordableCardHighlightEnabled: Bool = true,
+        customStandardRules: StandardCustomRules? = nil
     ) {
         self.mode = mode
         self.targetPrestige = min(max(targetPrestige, 10), 30)
         self.turnGracePeriodEnabled = turnGracePeriodEnabled
         self.affordableCardHighlightEnabled = affordableCardHighlightEnabled
+        self.customStandardRules = customStandardRules
         if let turnDurationSeconds {
             self.turnDurationSeconds = min(max(turnDurationSeconds, 10), 120)
         } else {
             self.turnDurationSeconds = nil
         }
+    }
+
+    /// The setup a standard match of `playerCount` players will actually use.
+    public func resolvedStandardRules(playerCount: Int) -> StandardCustomRules {
+        customStandardRules ?? .standard(playerCount: playerCount)
+    }
+
+    /// Tokens a player may hold at the end of their turn. Player-count
+    /// independent, so rules and UI can read it without knowing the table size.
+    public var standardTokenLimit: Int {
+        customStandardRules?.tokenLimit ?? StandardCustomRules.defaultTokenLimit
+    }
+
+    /// Cards a player may hold in reserve. See `standardTokenLimit`.
+    public var standardReserveLimit: Int {
+        customStandardRules?.reserveLimit ?? StandardCustomRules.defaultReserveLimit
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -110,6 +133,7 @@ public struct GameConfiguration: Codable, Equatable, Sendable {
         case turnDurationSeconds
         case turnGracePeriodEnabled
         case affordableCardHighlightEnabled
+        case customStandardRules
     }
 
     public init(from decoder: Decoder) throws {
@@ -122,7 +146,11 @@ public struct GameConfiguration: Codable, Equatable, Sendable {
             affordableCardHighlightEnabled: try container.decodeIfPresent(
                 Bool.self,
                 forKey: .affordableCardHighlightEnabled
-            ) ?? true
+            ) ?? true,
+            customStandardRules: try container.decodeIfPresent(
+                StandardCustomRules.self,
+                forKey: .customStandardRules
+            )
         )
     }
 
@@ -133,6 +161,7 @@ public struct GameConfiguration: Codable, Equatable, Sendable {
         try container.encodeIfPresent(turnDurationSeconds, forKey: .turnDurationSeconds)
         try container.encode(turnGracePeriodEnabled, forKey: .turnGracePeriodEnabled)
         try container.encode(affordableCardHighlightEnabled, forKey: .affordableCardHighlightEnabled)
+        try container.encodeIfPresent(customStandardRules, forKey: .customStandardRules)
     }
 }
 

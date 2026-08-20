@@ -57,6 +57,16 @@ struct ConfigurationView: View {
                     }
                 }
                 .disabled(!session.isHost)
+                if room.configuration.mode == .standard {
+                    // Kept outside the disabled section above so a guest can still
+                    // expand it to read the host's setup.
+                    CustomStandardRulesSection(
+                        configuration: room.configuration,
+                        playerCount: room.participants.filter(\.isConnected).count,
+                        isHost: session.isHost,
+                        onUpdate: session.updateConfiguration
+                    )
+                }
                 if session.isHost {
                     Section {
                         Button("config.start") { session.startGame() }

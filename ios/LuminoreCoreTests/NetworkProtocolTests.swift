@@ -61,6 +61,67 @@ final class NetworkProtocolTests: XCTestCase {
         )
     }
 
+    func testQuickChatMessageRoundTripPreservesAuthorAndPhrase() throws {
+        for phrase in QuickChatPhrase.selectable {
+            let message = QuickChatMessage(authorID: UUID(), phrase: phrase)
+            let envelope = WireEnvelope(
+                roomID: UUID(),
+                senderID: UUID(),
+                sequence: 11,
+                payload: .quickChat(message)
+            )
+
+            let decoded = try JSONDecoder().decode(
+                WireEnvelope.self,
+                from: JSONEncoder().encode(envelope)
+            )
+
+            XCTAssertEqual(decoded.payload, .quickChat(message), "phrase: \(phrase)")
+            guard case let .quickChat(decodedMessage) = decoded.payload else {
+                return XCTFail("wrong payload for \(phrase)")
+            }
+            // The author must survive the relay hop — the host stamps its own ID on
+            // the envelope when forwarding, so the payload is the only source.
+            XCTAssertEqual(decodedMessage.authorID, message.authorID)
+            XCTAssertEqual(decodedMessage.id, message.id)
+        }
+    }
+
+    func testQuickChatFixtureDecodes() throws {
+        let json = #"{"messageID":"44444444-4444-4444-4444-444444444444","payload":{"quickChat":{"authorID":"55555555-5555-5555-5555-555555555555","id":"66666666-6666-6666-6666-666666666666","phrase":"hurryUp","sentAt":774316800},"type":"quickChat"},"protocolVersion":1,"roomID":"22222222-2222-2222-2222-222222222222","senderID":"33333333-3333-3333-3333-333333333333","sequence":12}"#
+        let envelope = try JSONDecoder().decode(WireEnvelope.self, from: Data(json.utf8))
+        guard case let .quickChat(message) = envelope.payload else {
+            return XCTFail("expected a quickChat payload")
+        }
+        XCTAssertEqual(message.phrase, .hurryUp)
+        XCTAssertEqual(message.authorID, UUID(uuidString: "55555555-5555-5555-5555-555555555555"))
+        XCTAssertEqual(message.id, UUID(uuidString: "66666666-6666-6666-6666-666666666666"))
+    }
+
+    func testUnknownQuickChatPhraseDecodesAsUnrecognizedInsteadOfThrowing() throws {
+        // A phrase added in a future build must not tear down the frame; it decodes
+        // to `.unrecognized` and the receiver simply shows nothing.
+        let json = #"{"authorID":"11111111-1111-1111-1111-111111111111","id":"22222222-2222-2222-2222-222222222222","phrase":"newInSomeFutureBuild","sentAt":774316800}"#
+        let message = try JSONDecoder().decode(QuickChatMessage.self, from: Data(json.utf8))
+        XCTAssertEqual(message.phrase, .unrecognized)
+        XCTAssertEqual(message.authorID, UUID(uuidString: "11111111-1111-1111-1111-111111111111"))
+    }
+
+    func testUnknownMessageKindDecodesAsUnknownInsteadOfThrowing() throws {
+        // Same contract one level up: an unfamiliar payload `type` means a newer
+        // peer, not a corrupt frame. Throwing here would surface a user-visible
+        // "invalid_frame" error mid-match on the internet transport.
+        let json = #"{"messageID":"11111111-1111-1111-1111-111111111111","payload":{"type":"somethingNew"},"protocolVersion":1,"roomID":"22222222-2222-2222-2222-222222222222","senderID":"33333333-3333-3333-3333-333333333333","sequence":3}"#
+        let envelope = try JSONDecoder().decode(WireEnvelope.self, from: Data(json.utf8))
+        XCTAssertEqual(envelope.payload, .unknown)
+    }
+
+    func testMalformedPayloadUnderAKnownKindStillThrows() {
+        // Only the discriminator is lenient: genuine corruption must still surface.
+        let json = #"{"messageID":"11111111-1111-1111-1111-111111111111","payload":{"type":"quickChat","quickChat":{"phrase":"hurryUp"}},"protocolVersion":1,"roomID":"22222222-2222-2222-2222-222222222222","senderID":"33333333-3333-3333-3333-333333333333","sequence":4}"#
+        XCTAssertThrowsError(try JSONDecoder().decode(WireEnvelope.self, from: Data(json.utf8)))
+    }
+
     func testLegacyJoinRequestWithoutDeviceInstallDecodes() throws {
         // A pre-install-ID (protocol v1) client omits deviceInstallID entirely; it
         // must still decode, with the field defaulting to nil so the host falls back
@@ -161,6 +222,49 @@ final class NetworkProtocolTests: XCTestCase {
         XCTAssertFalse(
             try JSONDecoder().decode(GameConfiguration.self, from: data).affordableCardHighlightEnabled
         )
+    }
+
+    func testLegacyConfigurationHasNoCustomStandardRules() throws {
+        let json = #"{"mode":"standard","targetPrestige":15,"turnDurationSeconds":30}"#
+        let configuration = try JSONDecoder().decode(GameConfiguration.self, from: Data(json.utf8))
+        XCTAssertNil(configuration.customStandardRules)
+        XCTAssertEqual(configuration.standardTokenLimit, StandardCustomRules.defaultTokenLimit)
+        XCTAssertEqual(configuration.standardReserveLimit, StandardCustomRules.defaultReserveLimit)
+    }
+
+    /// The host's custom setup has to reach every guest; it travels inside
+    /// `GameConfiguration`, so a plain round trip is the contract worth pinning.
+    func testCustomStandardRulesSurviveConfigurationRoundTrip() throws {
+        var custom = StandardCustomRules.standard(playerCount: 5)
+        custom.gemCount = 11
+        custom.goldCount = 3
+        custom.tier3DeckCount = 8
+        custom.nobleCount = 1
+        custom.tokenLimit = 13
+        custom.reserveLimit = 2
+
+        let message = NetworkMessage.updateConfiguration(
+            GameConfiguration(customStandardRules: custom)
+        )
+        let decoded = try JSONDecoder().decode(NetworkMessage.self, from: JSONEncoder().encode(message))
+        guard case let .updateConfiguration(configuration) = decoded else {
+            return XCTFail("expected updateConfiguration")
+        }
+        XCTAssertEqual(configuration.customStandardRules, custom)
+        XCTAssertEqual(configuration.standardTokenLimit, 13)
+        XCTAssertEqual(configuration.standardReserveLimit, 2)
+    }
+
+    /// A peer on an older build may omit fields we added later; each one falls
+    /// back to its printed-rules default rather than failing the whole frame.
+    func testPartialCustomStandardRulesDecodeToDefaults() throws {
+        let json = #"{"mode":"standard","targetPrestige":15,"customStandardRules":{"gemCount":9}}"#
+        let configuration = try JSONDecoder().decode(GameConfiguration.self, from: Data(json.utf8))
+        let custom = try XCTUnwrap(configuration.customStandardRules)
+        XCTAssertEqual(custom.gemCount, 9)
+        XCTAssertEqual(custom.tokenLimit, StandardCustomRules.defaultTokenLimit)
+        XCTAssertEqual(custom.reserveLimit, StandardCustomRules.defaultReserveLimit)
+        XCTAssertEqual(custom.tier1DeckCount, StandardCustomRules.catalogCount(tier: 1))
     }
 
     func testOpeningTurnSelectionSurvivesSnapshotRoundTripAndRemainsBackwardCompatible() throws {

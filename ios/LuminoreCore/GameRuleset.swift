@@ -35,9 +35,9 @@ public enum GameRuleError: Error, Equatable, LocalizedError, Sendable {
         case .notPlayersTurn: "It is not this player's turn."
         case .invalidAction: "This action is not legal."
         case .insufficientTokens: "There are not enough tokens."
-        case .tokenLimitViolation: "The player must finish with exactly 10 or fewer tokens."
+        case .tokenLimitViolation: "The player must finish the turn within the token limit."
         case .cardNotFound: "The selected card is no longer available."
-        case .reserveLimitReached: "No more than three cards may be reserved."
+        case .reserveLimitReached: "The reserve limit has been reached."
         case .noGoldAvailable: "A card can be reserved only while a gold token is available."
         case .cardNotAffordable: "The selected card cannot be afforded."
         case .invalidPayment: "The selected payment is invalid."
@@ -58,13 +58,19 @@ public struct StandardRuleset: GameRuleset {
         guard (2 ... 7).contains(participants.count) else { throw GameRuleError.invalidPlayerCount }
         guard Set(participants.map(\.id)).count == participants.count else { throw GameRuleError.invalidPlayerCount }
 
+        let setup = configuration.resolvedStandardRules(playerCount: participants.count)
         var random = SeededGenerator(seed: seed)
         var decks: [Int: [DevelopmentCard]] = [:]
         var market: [Int: [DevelopmentCard]] = [:]
         for tier in 1 ... 3 {
             var cards = StandardCatalog.cards.filter { $0.tier == tier }
             cards.shuffle(using: &random)
-            market[tier] = (0 ..< min(4, cards.count)).compactMap { _ in cards.popLast() }
+            // A custom deck size plays a random subset of the catalog: shuffle
+            // first, then trim, so the cards left out differ every match.
+            cards = Array(cards.prefix(setup.deckCount(tier: tier)))
+            market[tier] = (0 ..< min(StandardCustomRules.marketRowSize, cards.count)).compactMap { _ in
+                cards.popLast()
+            }
             decks[tier] = cards
         }
 
@@ -76,10 +82,10 @@ public struct StandardRuleset: GameRuleset {
             gameID: UUID(),
             configuration: configuration,
             players: participants.map(PlayerState.init),
-            bank: Self.initialBank(playerCount: participants.count),
+            bank: setup.initialBank,
             decks: decks,
             market: market,
-            availableNobles: Array(nobles.prefix(participants.count + 1)),
+            availableNobles: Array(nobles.prefix(setup.nobleCount)),
             currentPlayerIndex: startingPlayerIndex,
             startingPlayerIndex: startingPlayerIndex,
             roundNumber: 1,
@@ -151,19 +157,7 @@ public struct StandardRuleset: GameRuleset {
     }
 
     public static func initialBank(playerCount: Int) -> [GemColor: Int] {
-        let colored: Int
-        let gold: Int
-        switch playerCount {
-        case 2: (colored, gold) = (4, 5)
-        case 3: (colored, gold) = (5, 5)
-        case 4: (colored, gold) = (7, 5)
-        case 5: (colored, gold) = (8, 6)
-        case 6: (colored, gold) = (9, 7)
-        default: (colored, gold) = (10, 8)
-        }
-        var bank = Dictionary(uniqueKeysWithValues: GemColor.purchasableColors.map { ($0, colored) })
-        bank[.gold] = gold
-        return bank
+        StandardCustomRules.standard(playerCount: playerCount).initialBank
     }
 }
 
@@ -196,7 +190,9 @@ private extension StandardRuleset {
     func applyReserve(source: CardSource, returning: [GemColor: Int], state: inout GameState) throws {
         guard returning.values.allSatisfy({ $0 >= 0 }) else { throw GameRuleError.invalidAction }
         let index = state.currentPlayerIndex
-        guard state.players[index].reservedCards.count < 3 else { throw GameRuleError.reserveLimitReached }
+        guard state.players[index].reservedCards.count < state.configuration.standardReserveLimit else {
+            throw GameRuleError.reserveLimitReached
+        }
         guard state.bank[.gold, default: 0] > 0 else { throw GameRuleError.noGoldAvailable }
 
         let card: DevelopmentCard
@@ -298,7 +294,7 @@ private extension StandardRuleset {
         guard returns.allSatisfy({ state.players[playerIndex].tokens[$0.key, default: 0] >= $0.value }) else {
             throw GameRuleError.insufficientTokens
         }
-        let excess = max(0, state.players[playerIndex].tokenCount - 10)
+        let excess = max(0, state.players[playerIndex].tokenCount - state.configuration.standardTokenLimit)
         guard returns.values.reduce(0, +) == excess else { throw GameRuleError.tokenLimitViolation }
         for (color, amount) in returns {
             state.players[playerIndex].tokens[color, default: 0] -= amount
@@ -354,6 +350,7 @@ private extension StandardRuleset {
 
     func finishGame(state: inout GameState) {
         state.status = .finished
+        // 名次只看声望：同分即并列，发展卡数仅用于同分时的展示顺序。
         let sorted = state.players.sorted {
             if $0.prestige != $1.prestige { return $0.prestige > $1.prestige }
             if $0.developmentCardCount != $1.developmentCardCount {
@@ -361,10 +358,8 @@ private extension StandardRuleset {
             }
             return $0.nickname.localizedStandardCompare($1.nickname) == .orderedAscending
         }
-        let top = sorted.first
-        let winnerIDs = sorted.filter {
-            $0.prestige == top?.prestige && $0.developmentCardCount == top?.developmentCardCount
-        }.map(\.id)
+        let topPrestige = sorted.first?.prestige
+        let winnerIDs = sorted.filter { $0.prestige == topPrestige }.map(\.id)
         let humanLoserCount = state.players.count {
             $0.kind == .human && !winnerIDs.contains($0.id)
         }
@@ -377,7 +372,7 @@ private extension StandardRuleset {
         var previous: PlayerState?
         var rank = 0
         let standings = sorted.enumerated().map { offset, player in
-            if previous == nil || previous?.prestige != player.prestige || previous?.developmentCardCount != player.developmentCardCount {
+            if previous == nil || previous?.prestige != player.prestige {
                 rank = offset + 1
             }
             previous = player

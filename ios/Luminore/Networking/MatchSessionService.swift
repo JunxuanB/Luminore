@@ -21,6 +21,13 @@ final class MatchSessionService: ObservableObject {
     /// Latest host-confirmed action animation. All three transports publish the
     /// same event before their resulting game snapshot is presented.
     @Published var gameAnimationEvent: GameAnimationEvent?
+    /// Newest quick-chat bubble to show, with the author's display name already
+    /// resolved against the local roster. Replaced rather than queued — only one
+    /// bubble is ever on screen. See `MatchSessionService+QuickChat`.
+    @Published var quickChatEvent: QuickChatEvent?
+    /// When the local quick-chat send cooldown lifts. Purely local anti-spam; the
+    /// host deliberately does not rate-limit.
+    @Published var quickChatCooldownEndsAt: Date?
     @Published var discoveredRooms: [DiscoveredMatchRoom] = []
     @Published var roomCode: String?
     @Published var turnDeadline: Date?
@@ -71,6 +78,8 @@ final class MatchSessionService: ObservableObject {
     var outgoingSequence: UInt64 = 0
     var lastIncomingSequence: [TransportPeerID: UInt64] = [:]
     var seenMessageIDs: Set<UUID> = []
+    /// Timestamps of recent local quick-chat sends, used for the burst allowance.
+    var quickChatSendTimes: [Date] = []
     var turnTask: Task<Void, Never>?
     var openingTurnTask: Task<Void, Never>?
     /// Host-side task that computes and applies the current bot seat's move.
@@ -316,6 +325,9 @@ final class MatchSessionService: ObservableObject {
         room = nil
         game = nil
         gameAnimationEvent = nil
+        quickChatEvent = nil
+        quickChatCooldownEndsAt = nil
+        quickChatSendTimes.removeAll()
         turnDeadline = nil
         openingTurnSelection = nil
         phase = .menu

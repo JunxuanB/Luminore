@@ -21,6 +21,11 @@ struct GameBoardView: View {
     @State private var bursts: [GameBurst] = []
 
     private var snapshot: ClientGameSnapshot? { session.game }
+    /// Token cap for this table — customisable by the host, so never assume 10.
+    private var tokenLimit: Int {
+        snapshot?.configuration.standardTokenLimit ?? StandardCustomRules.defaultTokenLimit
+    }
+
     private var localPlayer: PublicPlayerSnapshot? {
         snapshot?.players.first { $0.id == session.localID }
     }
@@ -54,6 +59,7 @@ struct GameBoardView: View {
                             OpponentCarousel(
                                 opponents: opponents(in: snapshot),
                                 currentPlayerID: snapshot.currentPlayerID,
+                                reserveLimit: snapshot.configuration.standardReserveLimit,
                                 opponentIndex: $opponentIndex,
                                 onOpenReservedCards: openOpponentReservedCards
                             )
@@ -109,6 +115,7 @@ struct GameBoardView: View {
                 PlayerInventoryBar(
                     player: player,
                     reservedCardCount: snapshot.localReservedCards.count,
+                    reserveLimit: snapshot.configuration.standardReserveLimit,
                     isCurrentPlayer: isLocalTurn,
                     deadline: session.turnDeadline,
                     turnDurationSeconds: snapshot.configuration.turnDurationSeconds,
@@ -175,6 +182,9 @@ struct GameBoardView: View {
                 GracePeriodBorder(deadline: deadline)
             }
         }
+        // Sits above the (non-interactive) flight and border layers, and below the
+        // roulette and pause covers so those hide it without any zIndex juggling.
+        .quickChatOverlay(session: session, isEnabled: tutorial == nil, bottomInset: 92)
         .overlay {
             if let snapshot, let selection = session.openingTurnSelection {
                 OpeningTurnRouletteView(
@@ -241,6 +251,7 @@ struct GameBoardView: View {
                     allowsReserve: tutorialGuide.allowsReserve(selection.card.id),
                     allowsPurchase: tutorialGuide.allowsPurchase(selection.card.id),
                     hasAvailableGold: snapshot.bank[.gold, default: 0] > 0,
+                    reserveLimit: snapshot.configuration.standardReserveLimit,
                     showsPurchaseHighlight: snapshot.configuration.affordableCardHighlightEnabled,
                     onReserve: {
                         guard isLocalTurn else { return }
@@ -341,7 +352,7 @@ struct GameBoardView: View {
         guard tutorialGuide.canTakeSelection else { return }
         var available = player.tokens
         for (gem, count) in selectedGems { available[gem, default: 0] += count }
-        let required = max(0, available.values.reduce(0, +) - 10)
+        let required = max(0, available.values.reduce(0, +) - tokenLimit)
         if required > 0 {
             pendingReturn = PendingReturn(kind: .take(selectedGems), available: available, required: required)
         } else {
@@ -359,7 +370,7 @@ struct GameBoardView: View {
         guard bank[.gold, default: 0] > 0 else { return }
         var available = player.tokens
         available[.gold, default: 0] += 1
-        let required = max(0, available.values.reduce(0, +) - 10)
+        let required = max(0, available.values.reduce(0, +) - tokenLimit)
         if required > 0 {
             pendingReturn = PendingReturn(kind: .reserve(source, card), available: available, required: required)
         } else {

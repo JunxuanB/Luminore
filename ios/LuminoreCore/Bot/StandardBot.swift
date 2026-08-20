@@ -54,25 +54,31 @@ struct StandardBot: BotController {
         let me = state.currentPlayer
         var actions: [GameAction] = []
         let demand = colorDemand(for: me, in: state)
+        let tokenLimit = state.configuration.standardTokenLimit
 
         // Takes -------------------------------------------------------------
         let available = GemColor.purchasableColors.filter { state.bank[$0, default: 0] > 0 }
         for combo in distinctCombinations(available, upTo: 3) {
             let picks = Dictionary(uniqueKeysWithValues: combo.map { ($0, 1) })
-            actions.append(makeTake(picks: picks, me: me, demand: demand))
+            actions.append(makeTake(picks: picks, me: me, demand: demand, tokenLimit: tokenLimit))
         }
         for color in GemColor.purchasableColors where state.bank[color, default: 0] >= 4 {
-            actions.append(makeTake(picks: [color: 2], me: me, demand: demand))
+            actions.append(makeTake(picks: [color: 2], me: me, demand: demand, tokenLimit: tokenLimit))
         }
 
         // Reserves ----------------------------------------------------------
-        if me.reservedCards.count < 3, state.bank[.gold, default: 0] > 0 {
+        if me.reservedCards.count < state.configuration.standardReserveLimit,
+           state.bank[.gold, default: 0] > 0 {
             for tier in 1 ... 3 {
                 for card in state.market[tier] ?? [] {
-                    actions.append(makeReserve(source: .market(cardID: card.id), me: me, demand: demand))
+                    actions.append(
+                        makeReserve(source: .market(cardID: card.id), me: me, demand: demand, tokenLimit: tokenLimit)
+                    )
                 }
                 if !(state.decks[tier]?.isEmpty ?? true) {
-                    actions.append(makeReserve(source: .deck(tier: tier), me: me, demand: demand))
+                    actions.append(
+                        makeReserve(source: .deck(tier: tier), me: me, demand: demand, tokenLimit: tokenLimit)
+                    )
                 }
             }
         }
@@ -92,20 +98,26 @@ struct StandardBot: BotController {
         return actions
     }
 
-    private func makeTake(picks: [GemColor: Int], me: PlayerState, demand: [GemColor: Double]) -> GameAction {
+    private func makeTake(
+        picks: [GemColor: Int],
+        me: PlayerState,
+        demand: [GemColor: Double],
+        tokenLimit: Int
+    ) -> GameAction {
         var projected = me.tokens
         for (color, amount) in picks { projected[color, default: 0] += amount }
-        return .take(tokens: picks, returning: excessReturns(from: projected, demand: demand))
+        return .take(tokens: picks, returning: excessReturns(from: projected, demand: demand, limit: tokenLimit))
     }
 
     private func makeReserve(
         source: CardSource,
         me: PlayerState,
-        demand: [GemColor: Double]
+        demand: [GemColor: Double],
+        tokenLimit: Int
     ) -> GameAction {
         var projected = me.tokens
         projected[.gold, default: 0] += 1
-        return .reserve(source: source, returning: excessReturns(from: projected, demand: demand))
+        return .reserve(source: source, returning: excessReturns(from: projected, demand: demand, limit: tokenLimit))
     }
 
     /// Minimum-gold payment for a card, or `nil` when unaffordable.
@@ -135,10 +147,14 @@ struct StandardBot: BotController {
         }?.id
     }
 
-    /// Chooses which tokens to hand back when over the 10-token cap. Drops the
-    /// least-demanded colours first and keeps gold to the very end.
-    private func excessReturns(from tokens: [GemColor: Int], demand: [GemColor: Double]) -> [GemColor: Int] {
-        var excess = max(0, tokens.values.reduce(0, +) - 10)
+    /// Chooses which tokens to hand back when over the table's token cap. Drops
+    /// the least-demanded colours first and keeps gold to the very end.
+    private func excessReturns(
+        from tokens: [GemColor: Int],
+        demand: [GemColor: Double],
+        limit: Int
+    ) -> [GemColor: Int] {
+        var excess = max(0, tokens.values.reduce(0, +) - limit)
         guard excess > 0 else { return [:] }
         let order = tokens.filter { $0.value > 0 }.keys.sorted { lhs, rhs in
             if lhs == .gold { return false }
@@ -174,7 +190,10 @@ struct StandardBot: BotController {
         let colored = GemColor.purchasableColors.reduce(0) { $0 + me.tokens[$1, default: 0] }
         score += goldValue(me.tokens[.gold, default: 0])
         score += Double(colored) * 2.2
-        if me.tokenCount >= 8 { score -= Double(me.tokenCount - 7) * 5 }
+        // Hoarding penalty tracks the table's cap: it starts biting two tokens
+        // short of it, so a custom limit shifts the whole curve with it.
+        let tokenLimit = state.configuration.standardTokenLimit
+        if me.tokenCount >= tokenLimit - 2 { score -= Double(me.tokenCount - (tokenLimit - 3)) * 5 }
         // A reserve costs a slot and telegraphs intent; the value of the card it
         // holds already flows through `cardProgress`, so the raw count is a cost.
         score -= Double(me.reservedCards.count) * 2

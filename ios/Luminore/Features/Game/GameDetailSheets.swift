@@ -36,6 +36,7 @@ struct CardDetailSheet: View {
     let allowsReserve: Bool
     let allowsPurchase: Bool
     let hasAvailableGold: Bool
+    let reserveLimit: Int
     let showsPurchaseHighlight: Bool
     let onReserve: () -> Void
     let onPurchase: ([GemColor: Int], String?) -> Void
@@ -84,7 +85,7 @@ struct CardDetailSheet: View {
                         .frame(maxWidth: .infinity)
                         .disabled(
                             !allowsActions || !allowsReserve
-                                || !hasAvailableGold || player.reservedCardCount >= 3
+                                || !hasAvailableGold || player.reservedCardCount >= reserveLimit
                         )
                     }
 

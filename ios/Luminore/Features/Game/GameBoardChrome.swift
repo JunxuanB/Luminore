@@ -101,6 +101,7 @@ struct VictoryProgressHeader: View {
 struct PlayerInventoryBar: View {
     let player: PublicPlayerSnapshot
     let reservedCardCount: Int
+    let reserveLimit: Int
     let isCurrentPlayer: Bool
     let deadline: Date?
     let turnDurationSeconds: Int?
@@ -123,7 +124,7 @@ struct PlayerInventoryBar: View {
 
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(spacing: 2) {
-                            Text("\(reservedCardCount) / 3")
+                            Text("\(reservedCardCount) / \(reserveLimit)")
                                 .font(.caption.bold().monospacedDigit())
                                 .contentTransition(.numericText())
                             Image(systemName: "chevron.up")

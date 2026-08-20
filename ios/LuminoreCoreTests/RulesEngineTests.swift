@@ -337,6 +337,28 @@ final class RulesEngineTests: XCTestCase {
         XCTAssertEqual(state.players[0].medalCount, 18)
     }
 
+    func testEqualPrestigeSharesRankRegardlessOfCardCount() throws {
+        var state = try makeGame(count: 3)
+        state.players[0].purchasedCards = [
+            DevelopmentCard(id: "few-cards", tier: 3, prestige: 15, bonus: .ruby, cost: [:])
+        ]
+        state.players[1].purchasedCards = (0 ..< 3).map {
+            DevelopmentCard(id: "many-cards-\($0)", tier: 2, prestige: 5, bonus: .onyx, cost: [:])
+        }
+        state.players[2].purchasedCards = [
+            DevelopmentCard(id: "runner-up", tier: 2, prestige: 8, bonus: .emerald, cost: [:])
+        ]
+
+        try finishGame(&state)
+
+        let result = try XCTUnwrap(state.result)
+        XCTAssertEqual(Set(result.winnerIDs), Set([state.players[0].id, state.players[1].id]))
+        XCTAssertEqual(result.standings.map(\.rank), [1, 1, 3])
+        XCTAssertEqual(result.standings.map(\.isWinner), [true, true, false])
+        // 并列冠军互不发奖章，只从落败的人类玩家各收一枚。
+        XCTAssertEqual(state.players.map(\.medalCount), [1, 1, 0])
+    }
+
     func testClientSnapshotExposesEveryPlayersReservedCards() throws {
         var state = try makeGame(count: 2)
         let first = state.players[0].id
@@ -353,11 +375,120 @@ final class RulesEngineTests: XCTestCase {
         ])
     }
 
-    private func makeGame(count: Int, seed: UInt64 = 42) throws -> GameState {
+    // MARK: - Custom standard rules
+
+    func testCustomSetupDrivesBankDecksAndNobles() throws {
+        var custom = StandardCustomRules.standard(playerCount: 4)
+        custom.gemCount = 12
+        custom.goldCount = 2
+        custom.tier1DeckCount = 15
+        custom.tier2DeckCount = 12
+        custom.tier3DeckCount = 9
+        custom.nobleCount = 2
+
+        let state = try makeGame(count: 4, custom: custom)
+        XCTAssertTrue(GemColor.purchasableColors.allSatisfy { state.bank[$0] == 12 })
+        XCTAssertEqual(state.bank[.gold], 2)
+        XCTAssertEqual(state.availableNobles.count, 2)
+        // Each tier still opens four face-up cards; the rest stays in the deck.
+        for tier in 1 ... 3 {
+            XCTAssertEqual(state.market[tier]?.count, 4)
+        }
+        XCTAssertEqual(state.decks[1]?.count, 11)
+        XCTAssertEqual(state.decks[2]?.count, 8)
+        XCTAssertEqual(state.decks[3]?.count, 5)
+    }
+
+    func testCustomDeckIsADifferentRandomSubsetPerSeed() throws {
+        var custom = StandardCustomRules.standard(playerCount: 2)
+        custom.tier1DeckCount = 10
+        let first = try makeGame(count: 2, seed: 1, custom: custom)
+        let second = try makeGame(count: 2, seed: 2, custom: custom)
+        let ids = { (state: GameState) in
+            Set((state.market[1] ?? []).map(\.id)).union((state.decks[1] ?? []).map(\.id))
+        }
+        XCTAssertEqual(ids(first).count, 10)
+        XCTAssertNotEqual(ids(first), ids(second))
+    }
+
+    func testNilCustomRulesReproduceThePrintedSetup() throws {
+        for count in 2 ... 7 {
+            let auto = try makeGame(count: count, seed: 7)
+            let explicit = try makeGame(count: count, seed: 7, custom: .standard(playerCount: count))
+            XCTAssertEqual(auto.bank, explicit.bank)
+            XCTAssertEqual(auto.availableNobles.count, explicit.availableNobles.count)
+            XCTAssertEqual(auto.decks.mapValues(\.count), explicit.decks.mapValues(\.count))
+        }
+    }
+
+    func testCustomReserveLimitIsEnforced() throws {
+        var custom = StandardCustomRules.standard(playerCount: 2)
+        custom.reserveLimit = 1
+        var state = try makeGame(count: 2, custom: custom)
+        let playerID = state.currentPlayer.id
+        let index = state.currentPlayerIndex
+        let first = try XCTUnwrap(state.market[1]?.first)
+        try rules.apply(.reserve(source: .market(cardID: first.id), returning: [:]), playerID: playerID, to: &state)
+
+        // Back around to the same seat for a second reserve.
+        state.currentPlayerIndex = index
+        let second = try XCTUnwrap(state.market[2]?.first)
+        XCTAssertThrowsError(
+            try rules.apply(.reserve(source: .market(cardID: second.id), returning: [:]), playerID: playerID, to: &state)
+        ) { error in
+            XCTAssertEqual(error as? GameRuleError, .reserveLimitReached)
+        }
+    }
+
+    func testCustomTokenLimitDecidesRequiredReturns() throws {
+        var custom = StandardCustomRules.standard(playerCount: 2)
+        custom.tokenLimit = 12
+        var state = try makeGame(count: 2, custom: custom)
+        let index = state.currentPlayerIndex
+        for color in GemColor.purchasableColors { state.players[index].tokens[color] = 2 }
+        let id = state.currentPlayer.id
+        let picks: [GemColor: Int] = [.diamond: 1, .sapphire: 1, .ruby: 1]
+
+        // 10 + 3 = 13 is one over the raised cap, so exactly one token comes back.
+        XCTAssertThrowsError(try rules.apply(.take(tokens: picks, returning: [:]), playerID: id, to: &state))
+        try rules.apply(.take(tokens: picks, returning: [.diamond: 1]), playerID: id, to: &state)
+        XCTAssertEqual(state.players[index].tokenCount, 12)
+    }
+
+    func testCustomRulesAreClampedToSupportedRanges() {
+        let custom = StandardCustomRules(
+            gemCount: 999,
+            goldCount: -5,
+            tier1DeckCount: 999,
+            tier2DeckCount: 0,
+            tier3DeckCount: 999,
+            nobleCount: 99,
+            tokenLimit: 1,
+            reserveLimit: 99
+        )
+        XCTAssertEqual(custom.gemCount, StandardCustomRules.gemRange.upperBound)
+        XCTAssertEqual(custom.goldCount, StandardCustomRules.goldRange.lowerBound)
+        XCTAssertEqual(custom.tier1DeckCount, StandardCustomRules.catalogCount(tier: 1))
+        XCTAssertEqual(custom.tier2DeckCount, StandardCustomRules.marketRowSize)
+        XCTAssertEqual(custom.tier3DeckCount, StandardCustomRules.catalogCount(tier: 3))
+        XCTAssertEqual(custom.nobleCount, StandardCustomRules.nobleRange.upperBound)
+        XCTAssertEqual(custom.tokenLimit, StandardCustomRules.tokenLimitRange.lowerBound)
+        XCTAssertEqual(custom.reserveLimit, StandardCustomRules.reserveLimitRange.upperBound)
+    }
+
+    private func makeGame(
+        count: Int,
+        seed: UInt64 = 42,
+        custom: StandardCustomRules? = nil
+    ) throws -> GameState {
         let participants = (0 ..< count).map {
             Participant(id: UUID(), nickname: "Player \($0)", isHost: $0 == 0)
         }
-        return try rules.makeGame(participants: participants, configuration: .init(), seed: seed)
+        return try rules.makeGame(
+            participants: participants,
+            configuration: .init(customStandardRules: custom),
+            seed: seed
+        )
     }
 
     private func finishGame(_ state: inout GameState) throws {

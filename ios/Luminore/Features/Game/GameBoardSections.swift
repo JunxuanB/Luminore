@@ -4,6 +4,7 @@ import SwiftUI
 struct OpponentCarousel: View {
     let opponents: [PublicPlayerSnapshot]
     let currentPlayerID: UUID
+    let reserveLimit: Int
     @Binding var opponentIndex: Int
     let onOpenReservedCards: (PublicPlayerSnapshot) -> Void
 
@@ -77,7 +78,7 @@ struct OpponentCarousel: View {
                 Divider().frame(height: 22)
                 stat("\(opponent.developmentCardCount)", label: "game.stat.cards")
                 Divider().frame(height: 22)
-                stat("\(opponent.reservedCardCount)/3", label: "game.stat.reserved")
+                stat("\(opponent.reservedCardCount)/\(reserveLimit)", label: "game.stat.reserved")
                     .gameFlightAnchor(.reservedArea(opponent.id))
             }
 
@@ -221,7 +222,11 @@ struct NobleSection: View {
     let onSelect: (NobleTile) -> Void
 
     var body: some View {
-        if nobles.count <= 5 {
+        // A table can legitimately hold no nobles — a custom setup with zero, or
+        // a late game where all of them have been claimed. Take up no space.
+        if nobles.isEmpty {
+            EmptyView()
+        } else if nobles.count <= 5 {
             HStack(spacing: 7) {
                 ForEach(nobles) { noble in
                     nobleButton(noble)
@@ -272,7 +277,7 @@ struct MarketSection: View {
                         !isLocalTurn
                             || !canReserveDeck
                             || snapshot.deckCounts[tier, default: 0] == 0
-                            || snapshot.localReservedCards.count >= 3
+                            || snapshot.localReservedCards.count >= snapshot.configuration.standardReserveLimit
                             || snapshot.bank[.gold, default: 0] == 0
                     )
 
