@@ -11,9 +11,20 @@ final class MultipeerTransport: NSObject, MatchTransport {
     var onEvent: ((MatchTransportEvent) -> Void)?
     var onRoomsChanged: (([DiscoveredMatchRoom]) -> Void)?
 
+    /// How many times a join re-sends its invitation before giving up, and how long
+    /// it waits between attempts. MultipeerConnectivity drops an invitation without
+    /// any callback when the host happens to be restarting its advertiser, so a
+    /// single shot is not enough to make joining reliable.
+    private static let invitationAttempts = 6
+    private static let invitationRetryInterval: Duration = .seconds(4)
+    /// Coalescing window for advertiser restarts (see `updateRoom`).
+    private static let advertiseDebounce: Duration = .milliseconds(400)
+
     private let localPeer = MCPeerID(displayName: "Luminore-\(DeviceIdentity.installID.uuidString.prefix(12))")
     private var session: MCSession?
     private var advertiser: MCNearbyServiceAdvertiser?
+    private var advertisedInfo: [String: String]?
+    private var advertiseTask: Task<Void, Never>?
     private var browser: MCNearbyServiceBrowser?
     private var descriptor: RoomDescriptor?
     private var discoveredPeers: [UUID: MCPeerID] = [:]
@@ -22,16 +33,44 @@ final class MultipeerTransport: NSObject, MatchTransport {
     private var peersByTransportID: [TransportPeerID: MCPeerID] = [:]
     private var targetRoomID: UUID?
     private var isHosting = false
+    /// True while a room picker is on screen and wants `onRoomsChanged` updates.
+    /// Distinct from whether the browser object exists — a joined client keeps
+    /// browsing with no visible list (see `stopBrowsing`).
+    private var isListVisible = false
+    private var inviteTask: Task<Void, Never>?
+
+    private var isConnectedToHost: Bool { session?.connectedPeers.isEmpty == false }
+
+    /// A client must keep its browser alive for the whole session: MPC cancels a
+    /// pending invitation when the browser that sent it goes away, and `reconnect()`
+    /// needs the same browser to re-invite the host after a drop.
+    private var needsBrowserForSession: Bool { !isHosting && targetRoomID != nil }
 
     func startBrowsing() {
-        stopBrowsing()
+        isListVisible = true
+        ensureBrowser()
+        publishRooms()
+    }
+
+    func stopBrowsing() {
+        isListVisible = false
+        onRoomsChanged?([])
+        guard !needsBrowserForSession else { return }
+        teardownBrowser()
+    }
+
+    /// Starts browsing only if it isn't already running. Recreating a live browser
+    /// would invalidate every `MCPeerID` already handed out and abort in-flight
+    /// invitations, so re-entrant calls must be a no-op.
+    private func ensureBrowser() {
+        guard browser == nil else { return }
         let browser = MCNearbyServiceBrowser(peer: localPeer, serviceType: Self.serviceType)
         browser.delegate = self
         self.browser = browser
         browser.startBrowsingForPeers()
     }
 
-    func stopBrowsing() {
+    private func teardownBrowser() {
         browser?.stopBrowsingForPeers()
         browser?.delegate = nil
         browser = nil
@@ -55,40 +94,59 @@ final class MultipeerTransport: NSObject, MatchTransport {
         disconnect(closeRoom: true)
         descriptor = room
         isHosting = true
-        let session = makeSession()
-        self.session = session
-        let advertiser = MCNearbyServiceAdvertiser(
-            peer: localPeer,
-            discoveryInfo: Self.discoveryInfo(room),
-            serviceType: Self.serviceType
-        )
-        advertiser.delegate = self
-        self.advertiser = advertiser
-        advertiser.startAdvertisingPeer()
+        session = makeSession()
+        startAdvertising(room)
         onEvent?(.ready)
     }
 
     func join(room: DiscoveredMatchRoom) {
-        guard let peer = discoveredPeers[room.id] else {
+        guard discoveredPeers[room.id] != nil else {
             onEvent?(.failed(MatchTransportError.roomNotFound.localizedDescription))
             return
         }
-        let existingBrowser = browser
         descriptor = room.descriptor
         targetRoomID = room.id
         isHosting = false
-        let session = makeSession()
-        self.session = session
-        existingBrowser?.invitePeer(peer, to: session, withContext: Data(room.id.uuidString.utf8), timeout: 20)
+        session = makeSession()
+        ensureBrowser()
+        startInviting(announcesFailure: true)
     }
 
     func reconnect() {
-        guard !isHosting, let targetRoomID else { return }
-        if let peer = discoveredPeers[targetRoomID], let session, let browser {
-            browser.invitePeer(peer, to: session, withContext: Data(targetRoomID.uuidString.utf8), timeout: 20)
-        } else if browser == nil {
-            startBrowsing()
+        guard !isHosting, targetRoomID != nil else { return }
+        ensureBrowser()
+        if session == nil { session = makeSession() }
+        // The caller (MatchSessionService's reconnect loop) already backs off and
+        // surfaces its own reconnecting UI, so a silent retry is enough here.
+        startInviting(announcesFailure: false)
+    }
+
+    /// Re-sends the invitation until the session connects. A lone `invitePeer` is
+    /// lost whenever the host is between advertiser instances, and MPC reports
+    /// nothing back in that case — the joiner would just hang on the spinner.
+    private func startInviting(announcesFailure: Bool) {
+        inviteTask?.cancel()
+        inviteTask = Task { @MainActor [weak self] in
+            for _ in 0 ..< Self.invitationAttempts {
+                guard let self, !Task.isCancelled, !self.isConnectedToHost else { return }
+                self.sendInvitation()
+                try? await Task.sleep(for: Self.invitationRetryInterval)
+            }
+            guard let self, !Task.isCancelled, !self.isConnectedToHost, announcesFailure else { return }
+            self.onEvent?(.failed("nearby_join_failed"))
         }
+    }
+
+    private func sendInvitation() {
+        guard !isHosting, let targetRoomID, let session else { return }
+        ensureBrowser()
+        guard let browser, let peer = discoveredPeers[targetRoomID] else { return }
+        browser.invitePeer(
+            peer,
+            to: session,
+            withContext: Data(targetRoomID.uuidString.utf8),
+            timeout: 15
+        )
     }
 
     func send(_ envelope: WireEnvelope, to recipient: TransportRecipient) {
@@ -114,27 +172,47 @@ final class MultipeerTransport: NSObject, MatchTransport {
         _ = isPublic
         self.descriptor = descriptor
         guard isHosting else { return }
+        // Replacing the advertiser is the only way to publish a new TXT record, but
+        // it also tears down any invitation currently being negotiated. The room
+        // revision bumps on nearly every message, so restart only when the published
+        // record actually differs, and debounce bursts (a join mutates the roster,
+        // the player count and the stage in quick succession).
+        guard Self.discoveryInfo(descriptor) != advertisedInfo else { return }
+        advertiseTask?.cancel()
+        advertiseTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.advertiseDebounce)
+            guard !Task.isCancelled, let self, self.isHosting, let room = self.descriptor else { return }
+            self.startAdvertising(room)
+        }
+    }
+
+    private func startAdvertising(_ room: RoomDescriptor) {
+        advertiseTask?.cancel()
+        advertiseTask = nil
         advertiser?.stopAdvertisingPeer()
         advertiser?.delegate = nil
-        let replacement = MCNearbyServiceAdvertiser(
+        let info = Self.discoveryInfo(room)
+        let advertiser = MCNearbyServiceAdvertiser(
             peer: localPeer,
-            discoveryInfo: Self.discoveryInfo(descriptor),
+            discoveryInfo: info,
             serviceType: Self.serviceType
         )
-        replacement.delegate = self
-        advertiser = replacement
-        replacement.startAdvertisingPeer()
+        advertiser.delegate = self
+        self.advertiser = advertiser
+        advertisedInfo = info
+        advertiser.startAdvertisingPeer()
     }
 
     func disconnect(closeRoom: Bool) {
         _ = closeRoom
-        // Browsing has its own view-owned lifetime. In particular,
-        // MatchSessionService resets the current session before asking the
-        // transport to join a room. Keep the discovered peer alive across that
-        // reset so the room selected from the nearby list can still be invited.
+        inviteTask?.cancel()
+        inviteTask = nil
+        advertiseTask?.cancel()
+        advertiseTask = nil
         advertiser?.stopAdvertisingPeer()
         advertiser?.delegate = nil
         advertiser = nil
+        advertisedInfo = nil
         session?.disconnect()
         session?.delegate = nil
         session = nil
@@ -143,6 +221,11 @@ final class MultipeerTransport: NSObject, MatchTransport {
         descriptor = nil
         targetRoomID = nil
         isHosting = false
+        // Browsing has its own view-owned lifetime. In particular,
+        // MatchSessionService resets the current session before asking the
+        // transport to join a room. Keep the discovered peer alive across that
+        // reset so the room selected from the nearby list can still be invited.
+        if !isListVisible { teardownBrowser() }
     }
 
     private func makeSession() -> MCSession {
@@ -157,7 +240,11 @@ final class MultipeerTransport: NSObject, MatchTransport {
             let id = transportIDs[peer] ?? TransportPeerID()
             transportIDs[peer] = id
             peersByTransportID[id] = peer
-            if !isHosting { onEvent?(.ready) }
+            if !isHosting {
+                inviteTask?.cancel()
+                inviteTask = nil
+                onEvent?(.ready)
+            }
             onEvent?(.peerConnected(id))
         case .notConnected:
             guard let id = transportIDs.removeValue(forKey: peer) else { return }
@@ -176,12 +263,13 @@ final class MultipeerTransport: NSObject, MatchTransport {
         discoveredPeers[descriptor.id] = peer
         discoveredRooms[descriptor.id] = room
         publishRooms()
-        if targetRoomID == descriptor.id, let session, let browser {
-            browser.invitePeer(peer, to: session, withContext: Data(descriptor.id.uuidString.utf8), timeout: 20)
-        }
+        // The host reappeared (fresh advertiser, or back in range): invite it right
+        // away instead of waiting out the retry interval.
+        if targetRoomID == descriptor.id, !isConnectedToHost { sendInvitation() }
     }
 
     private func publishRooms() {
+        guard isListVisible else { return }
         onRoomsChanged?(discoveredRooms.values.sorted {
             $0.descriptor.name.localizedStandardCompare($1.descriptor.name) == .orderedAscending
         })
@@ -233,6 +321,13 @@ extension MultipeerTransport: MCNearbyServiceAdvertiserDelegate {
         let box = UncheckedSendableBox(invitationHandler)
         Task { @MainActor [weak self] in
             guard let self, self.isHosting, let session = self.session else {
+                box.value(false, nil)
+                return
+            }
+            // The joiner re-invites until it connects, so a duplicate can arrive
+            // while the first one is already established. Accepting it again would
+            // renegotiate and drop the working link.
+            guard !session.connectedPeers.contains(peerID) else {
                 box.value(false, nil)
                 return
             }

@@ -27,7 +27,12 @@
     <key>NSBonjourServices</key>
     <array>
         <string>_luminore._tcp</string>
+        <!-- MultipeerConnectivity registers and browses BOTH the TCP and the UDP
+             variant of its service type. Since iOS 14 the local-network privacy
+             layer only lets through service types declared here, so omitting the
+             UDP entry makes nearby discovery fail silently. -->
         <string>_luminore-mpc._tcp</string>
+        <string>_luminore-mpc._udp</string>
     </array>
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>Luminore uses Bluetooth to discover and connect to nearby players.</string>

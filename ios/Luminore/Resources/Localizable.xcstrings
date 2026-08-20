@@ -4918,13 +4918,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connect over Bluetooth or peer-to-peer Wi-Fi"
+            "value" : "Play face to face with no network — keep Wi‑Fi and Bluetooth on"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "通过蓝牙或点对点 Wi‑Fi 连接"
+            "value" : "面对面对战，无需联网 — 请同时开启 Wi‑Fi 与蓝牙"
           }
         }
       }
@@ -5005,6 +5005,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "附近房间"
+          }
+        }
+      }
+    },
+    "nearby.rooms.searching" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Searching for nearby players… Keep Wi‑Fi and Bluetooth turned on, and allow Local Network access for Luminore in Settings › Privacy & Security."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在搜索附近的玩家…请保持 Wi‑Fi 与蓝牙开启，并在「设置 › 隐私与安全性 › 本地网络」中允许 Luminore 访问。"
+          }
+        }
+      }
+    },
+    "nearby_join_failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't reach the host. Make sure both devices have Wi‑Fi and Bluetooth on and stay close together, then try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法连接到房主。请确认两台设备都已开启 Wi‑Fi 和蓝牙、且靠近放置，然后重试。"
           }
         }
       }

@@ -117,7 +117,7 @@ struct JoinRoomView: View {
                     ContentUnavailableView(
                         session.mode == .internet ? "internet.rooms.empty" : "lan.rooms.empty",
                         systemImage: session.mode == .internet ? "globe" : "wifi",
-                        description: Text(session.mode == .internet ? "internet.rooms.searching" : "lan.rooms.searching")
+                        description: Text(searchingHintKey)
                     )
                 } else {
                     ForEach(session.discoveredRooms) { room in
@@ -172,6 +172,16 @@ struct JoinRoomView: View {
 
     private var normalizedCode: String {
         roomCode.uppercased().filter { $0.isLetter || $0.isNumber }
+    }
+
+    /// Nearby discovery depends on radios and a privacy prompt the player can miss,
+    /// so its empty state spells out what to check instead of just spinning.
+    private var searchingHintKey: LocalizedStringKey {
+        switch session.mode {
+        case .internet: "internet.rooms.searching"
+        case .lan: "lan.rooms.searching"
+        case .nearby: "nearby.rooms.searching"
+        }
     }
 
     private func resolveCode() {

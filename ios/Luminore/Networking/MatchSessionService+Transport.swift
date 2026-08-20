@@ -65,7 +65,16 @@ extension MatchSessionService {
             phase = .ended
         case let .failed(message):
             presentedError = NSLocalizedString(message, comment: "")
-            if phase == .connecting, room == nil { phase = .ended }
+            guard phase == .connecting else { return }
+            if room == nil {
+                phase = .ended
+            } else if !isHost, room?.participants.isEmpty == true {
+                // The join never got off the ground — the host has not sent a
+                // roster yet, so nothing is half-established. Drop back to the
+                // menu so the player can pick the room again instead of being
+                // stranded on the connecting spinner.
+                leave()
+            }
         }
     }
 
