@@ -75,11 +75,11 @@ enum MatchTransportError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unsupportedRoomCode: NSLocalizedString("room_code_unsupported", comment: "")
-        case .roomNotFound: NSLocalizedString("room_not_found", comment: "")
-        case .invalidServer: NSLocalizedString("invalid_server_url", comment: "")
-        case .incompatibleServer: NSLocalizedString("incompatible_server", comment: "")
-        case .invalidResponse: NSLocalizedString("invalid_server_response", comment: "")
+        case .unsupportedRoomCode: AppLanguage.string("room_code_unsupported")
+        case .roomNotFound: AppLanguage.string("room_not_found")
+        case .invalidServer: AppLanguage.string("invalid_server_url")
+        case .incompatibleServer: AppLanguage.string("incompatible_server")
+        case .invalidResponse: AppLanguage.string("invalid_server_response")
         }
     }
 }

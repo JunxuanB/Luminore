@@ -3,17 +3,11 @@ import SwiftUI
 
 struct HomeView: View {
     let profile: AccountProfile
-    @Query private var activeMatches: [ActiveMatchRecord]
     @Query private var medals: [MedalRecord]
 
     init(profile: AccountProfile) {
         self.profile = profile
         let key = profile.uuid.uuidString
-        _activeMatches = Query(
-            filter: #Predicate<ActiveMatchRecord> { $0.ownerKey == key },
-            sort: \.updatedAt,
-            order: .reverse
-        )
         _medals = Query(
             filter: #Predicate<MedalRecord> { $0.ownerKey == key },
             sort: \.awardedAt,
@@ -44,24 +38,6 @@ struct HomeView: View {
                                 .padding(8)
                         }
                         .accessibilityLabel(Text("account.title"))
-                    }
-
-                    if let active = activeMatches.first {
-                        NavigationLink {
-                            MultiplayerFlowView(
-                                profile: profile,
-                                mode: active.multiplayerMode,
-                                serverURL: active.multiplayerMode == .internet
-                                    ? (active.serverURL ?? InternetServerSettings.defaultURL)
-                                    : nil,
-                                restoredSessionToken: active.sessionToken.isEmpty ? nil : active.sessionToken,
-                                medalCount: medalCount,
-                                autoResume: true
-                            )
-                        } label: {
-                            ResumeMatchCard(record: active)
-                        }
-                        .buttonStyle(.plain)
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
@@ -125,36 +101,6 @@ struct HomeView: View {
             .background(Color(.systemGroupedBackground))
             .navigationBarHidden(true)
         }
-    }
-}
-
-private struct ResumeMatchCard: View {
-    let record: ActiveMatchRecord
-
-    var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: "arrow.clockwise.circle.fill")
-                .font(.title2.bold())
-                .foregroundStyle(.orange)
-                .frame(width: 48, height: 48)
-                .background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 13))
-            VStack(alignment: .leading, spacing: 4) {
-                Text("home.resume.title").font(.headline)
-                Text(verbatim: record.roomName).font(.subheadline).foregroundStyle(.secondary)
-            }
-            Spacer()
-            if record.lastKnownIsMyTurn {
-                Text("home.resume.yourTurn")
-                    .font(.caption.bold())
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.orange.opacity(0.18), in: Capsule())
-                    .foregroundStyle(.orange)
-            }
-            Image(systemName: "chevron.right").foregroundStyle(.tertiary)
-        }
-        .padding(16)
-        .background(.background, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 

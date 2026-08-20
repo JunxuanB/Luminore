@@ -49,13 +49,13 @@ extension DuelTokenColor {
     /// Resolved gem name, for interpolating into other localized strings (e.g. banners).
     var localizedName: String {
         switch self {
-        case .diamond: String(localized: "gem.diamond")
-        case .sapphire: String(localized: "gem.sapphire")
-        case .emerald: String(localized: "gem.emerald")
-        case .ruby: String(localized: "gem.ruby")
-        case .onyx: String(localized: "gem.onyx")
-        case .pearl: String(localized: "duel.gem.pearl")
-        case .gold: String(localized: "gem.gold")
+        case .diamond: AppLanguage.string("gem.diamond")
+        case .sapphire: AppLanguage.string("gem.sapphire")
+        case .emerald: AppLanguage.string("gem.emerald")
+        case .ruby: AppLanguage.string("gem.ruby")
+        case .onyx: AppLanguage.string("gem.onyx")
+        case .pearl: AppLanguage.string("duel.gem.pearl")
+        case .gold: AppLanguage.string("gem.gold")
         }
     }
 }
@@ -114,7 +114,7 @@ struct DuelTokenChip: View {
         .shadow(color: .black.opacity(0.10), radius: 1.5, y: 1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(color.localizedKey))
-        .accessibilityValue(count.map(String.init) ?? (selected ? String(localized: "duel.selected") : ""))
+        .accessibilityValue(count.map(String.init) ?? (selected ? AppLanguage.string("duel.selected") : ""))
     }
 }
 

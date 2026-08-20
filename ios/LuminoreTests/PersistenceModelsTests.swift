@@ -12,7 +12,7 @@ final class PersistenceModelsTests: XCTestCase {
     private static let sharedContainer: ModelContainer = {
         let schema = Schema([
             AccountProfile.self, MedalRecord.self, CompletedGameRecord.self, PresenceLease.self,
-            SavedGameRecord.self, ActiveMatchRecord.self
+            GameSaveRecord.self
         ])
         // cloudKitDatabase: .none keeps the in-memory store from attaching CloudKit
         // mirroring (which the app's entitlement would otherwise trigger and crash).
@@ -28,79 +28,133 @@ final class PersistenceModelsTests: XCTestCase {
         try context.delete(model: MedalRecord.self)
         try context.delete(model: CompletedGameRecord.self)
         try context.delete(model: PresenceLease.self)
-        try context.delete(model: SavedGameRecord.self)
-        try context.delete(model: ActiveMatchRecord.self)
+        try context.delete(model: GameSaveRecord.self)
         try context.save()
         return context
     }
 
-    func testSavedAndActiveMatchRecordsPersistAndFilterByOwnerKey() throws {
+    private func makeSave(
+        ownerKey: String,
+        roomName: String = "Saturday Night",
+        seats: [Participant] = [],
+        savedAt: Date = Date()
+    ) throws -> GameSaveRecord {
+        GameSaveRecord(
+            ownerKey: ownerKey,
+            gameID: UUID(),
+            roomName: roomName,
+            modeRawValue: GameMode.standard.rawValue,
+            playerCount: max(seats.count, 1),
+            currentSeatNickname: seats.first?.nickname ?? "Ada",
+            statePayload: Data([1, 2, 3]),
+            seatsPayload: try JSONEncoder().encode(seats),
+            savedAt: savedAt
+        )
+    }
+
+    /// End-to-end: a real host saves a live match, and a later room loads it back
+    /// with the same people. Covers what the browser reads off the record and what
+    /// the loader puts back into a session.
+    func testHostSaveRoundTripsThroughTheStoreAndReloadsIntoANewRoom() throws {
+        let context = try makeContext()
+        let hostID = UUID()
+        let guestID = UUID()
+        let seats = [
+            Participant(id: hostID, nickname: "Host", isHost: true),
+            Participant(id: guestID, nickname: "Guest"),
+        ]
+        var state = try StandardRuleset().makeGame(participants: seats, configuration: .init(), seed: 3)
+        state.players[1].tokens = [.onyx: 2]
+        state.currentPlayerIndex = 1
+
+        let host = MatchSessionService(localID: hostID, nickname: "Host", mode: .lan)
+        host.isHost = true
+        host.authoritativeGame = state
+        host.room = RoomSnapshot(
+            descriptor: RoomDescriptor(
+                id: UUID(), name: "Saturday Night", hostNickname: "Host", playerCount: 2,
+                isPasswordProtected: false, stage: .playing
+            ),
+            participants: seats
+        )
+        host.saveAndEndMatch(context: context)
+        XCTAssertNil(host.presentedError)
+
+        let ownerKey = hostID.uuidString
+        let record = try XCTUnwrap(try context.fetch(
+            FetchDescriptor<GameSaveRecord>(predicate: #Predicate { $0.ownerKey == ownerKey })
+        ).first)
+        // What the browser shows.
+        XCTAssertEqual(record.roomName, "Saturday Night")
+        XCTAssertEqual(record.playerCount, 2)
+        XCTAssertEqual(record.currentSeatNickname, "Guest")
+        XCTAssertEqual(record.seats.map(\.nickname), ["Host", "Guest"])
+
+        // A fresh room with the same two accounts: the default same-UUID pairing.
+        let reloaded = MatchSessionService(localID: hostID, nickname: "Host", mode: .lan)
+        reloaded.isHost = true
+        reloaded.room = RoomSnapshot(
+            descriptor: RoomDescriptor(
+                id: UUID(), name: "Sunday", hostNickname: "Host", playerCount: 2,
+                isPasswordProtected: false, stage: .configuration
+            ),
+            participants: seats
+        )
+        reloaded.loadSavedGame(record, assignment: [hostID: hostID, guestID: guestID])
+
+        XCTAssertNil(reloaded.presentedError)
+        XCTAssertEqual(reloaded.authoritativeGame?.currentPlayer.id, guestID)
+        XCTAssertEqual(reloaded.authoritativeGame?.players.last?.tokens, [.onyx: 2])
+        XCTAssertEqual(reloaded.phase, .game)
+        // Loading leaves the save in place; deleting is an explicit choice.
+        XCTAssertEqual(try context.fetch(FetchDescriptor<GameSaveRecord>()).count, 1)
+    }
+
+    func testSavesAccumulatePerProfileAndFilterByOwnerKey() throws {
         let context = try makeContext()
         let ownerKey = UUID().uuidString
-        let gameID = UUID()
-        let roomID = UUID()
+        let otherKey = UUID().uuidString
+        let now = Date()
 
-        context.insert(SavedGameRecord(
-            ownerKey: ownerKey,
-            gameID: gameID,
-            roomID: roomID,
-            roomName: "Saturday Night",
-            modeRawValue: "standard",
-            statePayload: Data([1, 2, 3]),
-            sessionPayload: Data([4, 5])
-        ))
-        context.insert(ActiveMatchRecord(
-            ownerKey: ownerKey,
-            gameID: gameID,
-            roomID: roomID,
-            roomName: "Saturday Night",
-            modeRawValue: "standard",
-            myParticipantID: UUID(),
-            wasHost: true,
-            lastKnownIsMyTurn: true
-        ))
+        context.insert(try makeSave(ownerKey: ownerKey, roomName: "Older", savedAt: now - 600))
+        context.insert(try makeSave(ownerKey: ownerKey, roomName: "Newer", savedAt: now))
+        context.insert(try makeSave(ownerKey: otherKey, roomName: "Someone Else"))
         try context.save()
 
         // ownerKey is a String, so it is safe to use in a #Predicate (unlike UUID).
-        let saved = try context.fetch(
-            FetchDescriptor<SavedGameRecord>(predicate: #Predicate { $0.ownerKey == ownerKey })
+        var descriptor = FetchDescriptor<GameSaveRecord>(
+            predicate: #Predicate { $0.ownerKey == ownerKey },
+            sortBy: [SortDescriptor(\.savedAt, order: .reverse)]
         )
-        let active = try context.fetch(
-            FetchDescriptor<ActiveMatchRecord>(predicate: #Predicate { $0.ownerKey == ownerKey })
-        )
-        XCTAssertEqual(saved.count, 1)
-        XCTAssertEqual(saved.first?.roomID, roomID)
-        XCTAssertEqual(saved.first?.statePayload, Data([1, 2, 3]))
-        XCTAssertEqual(active.count, 1)
-        XCTAssertEqual(active.first?.wasHost, true)
-        XCTAssertEqual(active.first?.lastKnownIsMyTurn, true)
-        XCTAssertEqual(saved.first?.multiplayerMode, .lan)
-        XCTAssertEqual(active.first?.multiplayerMode, .lan)
+        descriptor.fetchLimit = 10
+        let mine = try context.fetch(descriptor)
+
+        // Saving twice keeps both records — a save is a slot, not a single overwrite.
+        XCTAssertEqual(mine.map(\.roomName), ["Newer", "Older"])
+        XCTAssertEqual(mine.first?.statePayload, Data([1, 2, 3]))
+        XCTAssertEqual(try context.fetch(FetchDescriptor<GameSaveRecord>()).count, 3)
     }
 
-    func testInternetResumeMetadataPersistsWithServerSnapshotAndToken() throws {
+    func testSavedSeatsRoundTripNicknamesAndBotDifficulty() throws {
         let context = try makeContext()
-        let record = ActiveMatchRecord(
-            ownerKey: UUID().uuidString,
-            gameID: UUID(),
-            roomID: UUID(),
-            roomName: "Relay Room",
-            modeRawValue: "standard",
-            myParticipantID: UUID(),
-            wasHost: false,
-            transportRawValue: MultiplayerMode.internet.rawValue,
-            serverURLString: "https://relay.example.com",
-            isPublic: false,
-            sessionToken: "seat-token"
-        )
+        let ownerKey = UUID().uuidString
+        let human = Participant(id: UUID(), nickname: "Ada", medalCount: 4)
+        let bot = Participant(id: UUID(), nickname: "AI 1", kind: .bot, difficulty: .hard)
+
+        let record = try makeSave(ownerKey: ownerKey, seats: [human, bot])
         context.insert(record)
         try context.save()
 
-        let restored = try XCTUnwrap(context.fetch(FetchDescriptor<ActiveMatchRecord>()).first)
-        XCTAssertEqual(restored.multiplayerMode, .internet)
-        XCTAssertEqual(restored.serverURL?.absoluteString, "https://relay.example.com")
-        XCTAssertFalse(restored.isPublic)
-        XCTAssertEqual(restored.sessionToken, "seat-token")
+        let restored = try XCTUnwrap(context.fetch(FetchDescriptor<GameSaveRecord>()).first)
+        XCTAssertEqual(restored.playerCount, 2)
+        XCTAssertEqual(restored.currentSeatNickname, "Ada")
+        XCTAssertEqual(restored.gameMode, .standard)
+        // Seat order is turn order, and each seat keeps the nickname the host used
+        // to tell players apart plus the bot difficulty the AI driver needs.
+        XCTAssertEqual(restored.seats.map(\.nickname), ["Ada", "AI 1"])
+        XCTAssertEqual(restored.seats.map(\.id), [human.id, bot.id])
+        XCTAssertEqual(restored.seats.last?.kind, .bot)
+        XCTAssertEqual(restored.seats.last?.difficulty, .hard)
     }
 
     func testAccountAndPlaceholderRecordsPersistInMemory() throws {

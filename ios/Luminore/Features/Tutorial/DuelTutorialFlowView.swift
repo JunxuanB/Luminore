@@ -17,7 +17,7 @@ struct DuelTutorialFlowView: View {
         let setup = TutorialScenario.duel(
             playerID: profile.uuid,
             nickname: profile.nickname,
-            opponentNickname: String(localized: "tutorial.duel.botName")
+            opponentNickname: AppLanguage.string("tutorial.duel.botName")
         )
         self.setup = setup
         _session = StateObject(wrappedValue: MatchSessionService(

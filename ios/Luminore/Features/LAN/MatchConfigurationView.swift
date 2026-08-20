@@ -3,6 +3,8 @@ import SwiftUI
 
 struct ConfigurationView: View {
     @ObservedObject var session: MatchSessionService
+    let profile: AccountProfile
+    @State private var showingSaveBrowser = false
 
     var body: some View {
         Form {
@@ -60,6 +62,12 @@ struct ConfigurationView: View {
                         Button("config.start") { session.startGame() }
                             .frame(maxWidth: .infinity)
                     }
+                    Section {
+                        Button("config.loadSave") { showingSaveBrowser = true }
+                            .frame(maxWidth: .infinity)
+                    } footer: {
+                        Text("config.loadSave.hint")
+                    }
                 } else {
                     Section {
                         ProgressView("config.waitingHost")
@@ -69,6 +77,11 @@ struct ConfigurationView: View {
             }
         }
         .navigationTitle("config.title")
+        .sheet(isPresented: $showingSaveBrowser) {
+            NavigationStack {
+                SaveBrowserView(session: session, ownerKey: profile.uuid.uuidString)
+            }
+        }
     }
 
     private func modeRow(

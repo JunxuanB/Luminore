@@ -276,74 +276,182 @@ final class MultiplayerTransportTests: XCTestCase {
         XCTAssertTrue(transport.lastCloseRoom)
     }
 
-    func testAssignedSubstituteKeepsTokenAcrossDisconnectAndReconnect() throws {
-        let transport = FakeMatchTransport(mode: .internet)
-        let hostID = UUID()
-        let oldSeatID = UUID()
-        let substituteID = UUID()
-        let installID = UUID()
-        let firstPeer = TransportPeerID("substitute-1")
-        let host = MatchSessionService(localID: hostID, nickname: "Host", mode: .internet, transport: transport)
-        let participants = [
-            Participant(id: hostID, nickname: "Host", isHost: true),
-            Participant(id: oldSeatID, nickname: "Away", isConnected: false),
+    /// Loading a save with two seats deliberately swapped: progress must follow the
+    /// *seat*, and the turn must land on whoever now owns the seat that was to move.
+    func testLoadingSaveWithSwappedSeatsMovesProgressAndTurnWithTheSeat() throws {
+        let transport = FakeMatchTransport(mode: .lan)
+        let savedSeats = [
+            Participant(id: UUID(), nickname: "Ada", isHost: true),
+            Participant(id: UUID(), nickname: "Bob"),
+            Participant(id: UUID(), nickname: "AI 1", kind: .bot, difficulty: .easy),
         ]
-        var state = try StandardRuleset().makeGame(
-            participants: participants,
+        var saved = try StandardRuleset().makeGame(
+            participants: savedSeats,
             configuration: .init(),
-            seed: 7
+            seed: 11
         )
-        host.rules.setConnection(false, playerID: oldSeatID, in: &state)
+        // Give each seat a distinguishable amount of progress, and hand the turn to
+        // seat 1 so a naive "start from the first player" load would be caught.
+        saved.players[0].tokens = [.ruby: 3]
+        saved.players[1].tokens = [.sapphire: 1]
+        saved.players[2].tokens = [.emerald: 2]
+        saved.currentPlayerIndex = 1
+        let record = try makeSaveRecord(from: saved, seats: savedSeats)
+
+        let hostID = UUID()
+        let guestID = UUID()
+        let botID = UUID()
+        let peer = TransportPeerID("guest")
+        let present = [
+            Participant(id: hostID, nickname: "Host", isHost: true),
+            Participant(id: guestID, nickname: "Guest"),
+            Participant(id: botID, nickname: "AI 9", kind: .bot, difficulty: .hard),
+        ]
+        let host = MatchSessionService(localID: hostID, nickname: "Host", mode: .lan, transport: transport)
         host.isHost = true
-        host.isAwaitingResumeAssignment = true
-        host.authoritativeGame = state
         host.room = RoomSnapshot(
             descriptor: RoomDescriptor(
-                id: UUID(),
-                name: "Saved",
-                hostNickname: "Host",
-                playerCount: 1,
-                isPasswordProtected: false,
-                stage: .lobby
+                id: UUID(), name: "Fresh", hostNickname: "Host", playerCount: 3,
+                isPasswordProtected: false, stage: .configuration
             ),
-            participants: participants
+            participants: present
         )
-        host.pendingSubstitutes = [PendingSubstitute(id: substituteID, nickname: "Sub", installID: installID)]
-        host.substitutePeers[substituteID] = firstPeer
-        host.peerParticipants[firstPeer] = substituteID
-        host.tokens[substituteID] = "provisional-token"
-        host.seatInstalls[substituteID] = installID
+        host.participantPeers[guestID] = peer
+        host.peerParticipants[peer] = guestID
 
-        host.assignSubstitute(seatID: oldSeatID, substituteID: substituteID)
+        // Ada's seat goes to the guest and Bob's to the host — a straight swap.
+        host.loadSavedGame(record, assignment: [
+            savedSeats[0].id: guestID,
+            savedSeats[1].id: hostID,
+            savedSeats[2].id: botID,
+        ])
 
-        XCTAssertEqual(host.tokens[substituteID], "provisional-token")
-        let tokenConfirmation = try XCTUnwrap(transport.sentEnvelopes.compactMap { envelope -> JoinResponse? in
-            if case let .joinResponse(response) = envelope.payload { return response }
+        let players = try XCTUnwrap(host.authoritativeGame?.players)
+        XCTAssertEqual(players.map(\.id), [guestID, hostID, botID])
+        XCTAssertEqual(players[0].tokens, [.ruby: 3])
+        XCTAssertEqual(players[1].tokens, [.sapphire: 1])
+        XCTAssertEqual(players[0].nickname, "Guest")
+        // Seat 1 was to move, and the host now owns it.
+        XCTAssertEqual(host.authoritativeGame?.currentPlayer.id, hostID)
+        // Room order mirrors turn order, and the bot's difficulty comes from the
+        // present roster (the AI driver reads it from there, not from the state).
+        XCTAssertEqual(host.room?.participants.map(\.id), [guestID, hostID, botID])
+        XCTAssertEqual(host.room?.participants.last?.difficulty, .hard)
+        XCTAssertTrue(players.allSatisfy(\.isConnected))
+        XCTAssertEqual(host.phase, .game)
+        XCTAssertEqual(host.room?.descriptor.stage, .playing)
+        // No opening roulette: it would gate actions and show a bogus starting seat.
+        XCTAssertNil(host.openingTurnSelection)
+
+        let snapshot = try XCTUnwrap(transport.sentEnvelopes.compactMap { envelope -> ClientGameSnapshot? in
+            if case let .gameState(snapshot) = envelope.payload { return snapshot }
             return nil
         }.last)
-        XCTAssertTrue(tokenConfirmation.accepted)
-        XCTAssertEqual(tokenConfirmation.sessionToken, "provisional-token")
+        XCTAssertEqual(snapshot.currentPlayerID, hostID)
+        XCTAssertNil(snapshot.openingTurnSelection)
+    }
 
-        host.peerStopped(firstPeer, error: nil)
-        XCTAssertEqual(host.room?.participants.first(where: { $0.id == substituteID })?.isConnected, false)
-        XCTAssertTrue(host.authoritativeGame?.players.contains(where: { $0.id == substituteID }) == true)
+    /// Duel keeps a parallel per-player array keyed by the same ids. Rewriting those
+    /// ids in place would let a later lookup hit an already-rebound seat, so a swap
+    /// is the case that catches it.
+    func testLoadingDuelSaveWithSwappedSeatsRemapsTheParallelDuelPlayers() throws {
+        let transport = FakeMatchTransport(mode: .nearby)
+        let savedSeats = [
+            Participant(id: UUID(), nickname: "Ada", isHost: true),
+            Participant(id: UUID(), nickname: "Bob"),
+        ]
+        var saved = try RulesEngine().makeGame(
+            participants: savedSeats,
+            configuration: .init(mode: .duel),
+            seed: 21
+        )
+        let duelIndexOfAda = try XCTUnwrap(saved.duel?.players.firstIndex { $0.id == savedSeats[0].id })
+        let duelIndexOfBob = try XCTUnwrap(saved.duel?.players.firstIndex { $0.id == savedSeats[1].id })
+        saved.duel?.players[duelIndexOfAda].privileges = 2
+        saved.duel?.players[duelIndexOfBob].privileges = 1
+        let record = try makeSaveRecord(from: saved, seats: savedSeats)
 
-        let secondPeer = TransportPeerID("substitute-2")
-        let challenge = PasswordAuthenticator.challenge()
-        host.challenges[secondPeer] = challenge
-        host.handleJoin(
-            JoinRequest(
-                participantID: substituteID,
-                nickname: "Sub",
-                authenticationCode: PasswordAuthenticator.code(password: "", challenge: challenge),
-                sessionToken: "provisional-token",
-                deviceInstallID: installID
+        let hostID = UUID()
+        let guestID = UUID()
+        let present = [
+            Participant(id: hostID, nickname: "Host", isHost: true),
+            Participant(id: guestID, nickname: "Guest"),
+        ]
+        let host = MatchSessionService(localID: hostID, nickname: "Host", mode: .nearby, transport: transport)
+        host.isHost = true
+        host.room = RoomSnapshot(
+            descriptor: RoomDescriptor(
+                id: UUID(), name: "Fresh", hostNickname: "Host", playerCount: 2,
+                isPasswordProtected: false, stage: .configuration
             ),
-            peer: secondPeer
+            participants: present
         )
 
-        XCTAssertEqual(host.room?.participants.first(where: { $0.id == substituteID })?.isConnected, true)
-        XCTAssertEqual(host.participantPeers[substituteID], secondPeer)
+        host.loadSavedGame(record, assignment: [
+            savedSeats[0].id: guestID,
+            savedSeats[1].id: hostID,
+        ])
+
+        let duel = try XCTUnwrap(host.authoritativeGame?.duel)
+        XCTAssertEqual(Set(duel.players.map(\.id)), [hostID, guestID])
+        // Ada's privileges followed her seat to the guest, Bob's to the host.
+        XCTAssertEqual(duel.players.first { $0.id == guestID }?.privileges, 2)
+        XCTAssertEqual(duel.players.first { $0.id == hostID }?.privileges, 1)
+        // The saved configuration wins over whatever the configuration screen held.
+        XCTAssertEqual(host.room?.configuration.mode, .duel)
+        XCTAssertEqual(host.room?.descriptor.maximumPlayers, 2)
+    }
+
+    func testLoadingSaveIsRejectedWhenTwoSeatsShareOnePlayer() throws {
+        let transport = FakeMatchTransport(mode: .lan)
+        let savedSeats = [
+            Participant(id: UUID(), nickname: "Ada", isHost: true),
+            Participant(id: UUID(), nickname: "Bob"),
+        ]
+        let saved = try StandardRuleset().makeGame(
+            participants: savedSeats,
+            configuration: .init(),
+            seed: 5
+        )
+        let record = try makeSaveRecord(from: saved, seats: savedSeats)
+
+        let hostID = UUID()
+        let guestID = UUID()
+        let host = MatchSessionService(localID: hostID, nickname: "Host", mode: .lan, transport: transport)
+        host.isHost = true
+        host.room = RoomSnapshot(
+            descriptor: RoomDescriptor(
+                id: UUID(), name: "Fresh", hostNickname: "Host", playerCount: 2,
+                isPasswordProtected: false, stage: .configuration
+            ),
+            participants: [
+                Participant(id: hostID, nickname: "Host", isHost: true),
+                Participant(id: guestID, nickname: "Guest"),
+            ]
+        )
+
+        host.loadSavedGame(record, assignment: [
+            savedSeats[0].id: hostID,
+            savedSeats[1].id: hostID,
+        ])
+
+        XCTAssertNil(host.authoritativeGame)
+        XCTAssertNotNil(host.presentedError)
+        // The host stays on the configuration screen instead of being kicked out.
+        XCTAssertEqual(host.room?.descriptor.stage, .configuration)
+    }
+
+    private func makeSaveRecord(from state: GameState, seats: [Participant]) throws -> GameSaveRecord {
+        GameSaveRecord(
+            ownerKey: UUID().uuidString,
+            gameID: state.gameID,
+            roomName: "Saved",
+            modeRawValue: state.configuration.mode.rawValue,
+            playerCount: state.players.count,
+            currentSeatNickname: state.currentPlayer.nickname,
+            statePayload: try JSONEncoder().encode(state),
+            seatsPayload: try JSONEncoder().encode(seats)
+        )
     }
 
     func testFinishedWinnerReconnectDoesNotOverwriteSettledMedalCount() throws {
@@ -389,119 +497,6 @@ final class MultiplayerTransportTests: XCTestCase {
 
         XCTAssertEqual(host.authoritativeGame?.players.first { $0.id == winnerID }?.medalCount, 10)
         XCTAssertEqual(host.room?.participants.first { $0.id == winnerID }?.medalCount, 10)
-    }
-
-    func testUnassignedSubstituteIsExplicitlyRejectedBeforeResume() throws {
-        let transport = FakeMatchTransport(mode: .nearby)
-        let hostID = UUID()
-        let guestID = UUID()
-        let peer = TransportPeerID("waiting-substitute")
-        let host = MatchSessionService(localID: hostID, nickname: "Host", mode: .nearby, transport: transport)
-        let participants = [
-            Participant(id: hostID, nickname: "Host", isHost: true),
-            Participant(id: UUID(), nickname: "Away", isConnected: false),
-        ]
-        var state = try StandardRuleset().makeGame(participants: participants, configuration: .init(), seed: 9)
-        host.rules.setConnection(false, playerID: participants[1].id, in: &state)
-        host.isHost = true
-        host.isAwaitingResumeAssignment = true
-        host.authoritativeGame = state
-        host.room = RoomSnapshot(
-            descriptor: RoomDescriptor(
-                id: UUID(), name: "Saved", hostNickname: "Host", playerCount: 1,
-                isPasswordProtected: false, stage: .lobby
-            ),
-            participants: participants
-        )
-        host.pendingSubstitutes = [PendingSubstitute(id: guestID, nickname: "Waiting", installID: nil)]
-        host.substitutePeers[guestID] = peer
-        host.peerParticipants[peer] = guestID
-        host.tokens[guestID] = "temporary"
-
-        host.continueResumedGame()
-
-        let rejection = try XCTUnwrap(transport.sentEnvelopes.compactMap { envelope -> JoinResponse? in
-            if case let .joinResponse(response) = envelope.payload, !response.accepted { return response }
-            return nil
-        }.first)
-        XCTAssertEqual(rejection.reason, "substitute_not_assigned")
-        XCTAssertTrue(host.pendingSubstitutes.isEmpty)
-        XCTAssertNil(host.peerParticipants[peer])
-        XCTAssertNil(host.tokens[guestID])
-    }
-}
-
-@MainActor
-private final class FakeMatchTransport: MatchTransport {
-    let mode: MultiplayerMode
-    var roomCode: String? { mode == .internet ? "ABC234" : nil }
-    var onEvent: ((MatchTransportEvent) -> Void)?
-    var onRoomsChanged: (([DiscoveredMatchRoom]) -> Void)?
-    weak var other: FakeMatchTransport?
-    private var room: RoomDescriptor?
-    private var hosting = false
-    var disconnectCalls = 0
-    var lastCloseRoom = false
-    var sentEnvelopes: [WireEnvelope] = []
-
-    init(mode: MultiplayerMode) {
-        self.mode = mode
-    }
-
-    func startBrowsing() {
-        if let room = other?.room { onRoomsChanged?([DiscoveredMatchRoom(descriptor: room)]) }
-    }
-
-    func stopBrowsing() { onRoomsChanged?([]) }
-
-    func resolveRoom(code: String) async throws -> DiscoveredMatchRoom {
-        guard code == roomCode, let room = other?.room else { throw MatchTransportError.roomNotFound }
-        return DiscoveredMatchRoom(descriptor: room)
-    }
-
-    func resolveRoom(id: UUID) async throws -> DiscoveredMatchRoom {
-        guard let room = other?.room, room.id == id else { throw MatchTransportError.roomNotFound }
-        return DiscoveredMatchRoom(descriptor: room)
-    }
-
-    func host(room: RoomDescriptor, isPublic: Bool) {
-        _ = isPublic
-        self.room = room
-        hosting = true
-        onEvent?(.ready)
-    }
-
-    func join(room: DiscoveredMatchRoom) {
-        self.room = room.descriptor
-        hosting = false
-        onEvent?(.ready)
-        onEvent?(.peerConnected(TransportPeerID("host")))
-        other?.onEvent?(.peerConnected(TransportPeerID("client")))
-    }
-
-    func reconnect() {}
-
-    func send(_ envelope: WireEnvelope, to recipient: TransportRecipient) {
-        sentEnvelopes.append(envelope)
-        guard let other else { return }
-        switch recipient {
-        case .host:
-            other.onEvent?(.message(envelope, from: TransportPeerID("client")))
-        case .peer, .allClients:
-            other.onEvent?(.message(envelope, from: TransportPeerID("host")))
-        }
-    }
-
-    func updateRoom(_ descriptor: RoomDescriptor, isPublic: Bool) {
-        _ = isPublic
-        room = descriptor
-    }
-
-    func disconnect(closeRoom: Bool) {
-        disconnectCalls += 1
-        lastCloseRoom = closeRoom
-        if closeRoom { room = nil }
-        hosting = false
     }
 }
 

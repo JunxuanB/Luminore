@@ -41,3 +41,8 @@ Swift 代码只编译，不运行。如果你要自己检查和测试，请调�
 主项目位于 /ios 而不是 /ios-ui-demo。所有功能实现必须确保三种对战方式都可用、同步更新。
 
 修改后端后记得部署。
+
+多语言规则：所有面向用户的文案一律以 APP 内的语言设置为准（`languageOverride`，其默认值 system 即跟随本机语言），不得直接读取本机/系统语言。
+- 文案统一放在 `ios/Luminore/Resources/Localizable.xcstrings`（默认表），中英文都要补齐；不要新建独立的 xcstrings 表。
+- SwiftUI 里用 `Text("key")` 这类 LocalizedStringKey，由 `LuminoreApp` 注入的 `\.locale` 生效。
+- 任何在运行时拼装字符串的地方（错误提示、人机昵称、无障碍标签、通知等）必须走 `AppLanguage.string(_:)`，禁止直接使用 `String(localized:)` / `NSLocalizedString` —— 它们只认系统语言，会绕过 APP 语言设置。

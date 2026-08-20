@@ -391,6 +391,7 @@
       }
     },
     "bot.name.easy" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -407,6 +408,7 @@
       }
     },
     "bot.name.hard" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -423,6 +425,7 @@
       }
     },
     "bot.name.normal" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -434,6 +437,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "人机·普通"
+          }
+        }
+      }
+    },
+    "bot.random.fallback" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Player"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "人机"
+          }
+        }
+      }
+    },
+    "bot.random.format" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@的%2$@"
+          }
+        }
+      }
+    },
+    "bot.random.modifiers" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sprinting,Snoozing,Grumpy,Gloomy,Lost,Overworked,Balding,Tipsy,Slacking,Daydreaming,Hiccuping,Dancing,Nocturnal,Roaring,Coasting,Shameless,Bashful,Abstract,Heartbroken,Invisible,Aloof,Zen,Picky,Dieting,Sleepless,Rebellious,Forgetful,Suspicious,Weepy,Jittery"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "奔跑,沉睡,暴躁,忧郁,迷路,加班,秃头,微醺,摸鱼,内卷,发呆,打嗝,蹦迪,熬夜,咆哮,划水,摆烂,社恐,抽象,破防,隐身,高冷,佛系,挑食,减肥,失眠,叛逆,健忘,多疑,爱哭"
+          }
+        }
+      }
+    },
+    "bot.random.subjects" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cockroach,Potato,Hamster,Panda,Seal,Pigeon,Snail,Octopus,Lemon,Sesame,Keyboard,Router,Fridge,Mop,Screw,Rice Cooker,Vulture,Hippo,Jellyfish,Mushroom,Penguin,Duck,Durian,Monitor,Dried Fish,Rag,Sloth,Koala,Parrot,Lightbulb"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "蟑螂,土豆,仓鼠,熊猫,海豹,鸽子,蜗牛,章鱼,柠檬,芝麻,键盘,路由器,冰箱,拖把,螺丝钉,电饭煲,秃鹫,河马,水母,蘑菇,企鹅,鸭子,榴莲,显示器,咸鱼,抹布,树懒,考拉,鹦鹉,灯泡"
           }
         }
       }
@@ -741,6 +812,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "仅限恰好 2 位玩家"
+          }
+        }
+      }
+    },
+    "config.loadSave" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load Save"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "载入存档"
+          }
+        }
+      }
+    },
+    "config.loadSave.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading a save ignores the settings above and uses the ones it was saved with. Only saves with exactly the same number of players can be loaded."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "载入存档会忽略以上设置，改用存档保存时的设置。只有人数完全一致的存档才能载入。"
           }
         }
       }
@@ -1774,6 +1877,7 @@
       }
     },
     "duel.selected" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2870,120 +2974,6 @@
         }
       }
     },
-    "game.resume.assign.hint" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Returning players reclaim their seats automatically. Assign an empty seat to a substitute, or leave it empty."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "原玩家会自动坐回原位。可把空座位指派给替补，或留空。"
-          }
-        }
-      }
-    },
-    "game.resume.assign.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Assign Seats"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "分配座位"
-          }
-        }
-      }
-    },
-    "game.resume.continue" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Continue"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "继续对局"
-          }
-        }
-      }
-    },
-    "game.resume.seat.assign" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Assign substitute"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "指派替补"
-          }
-        }
-      }
-    },
-    "game.resume.seat.online" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Online"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在线"
-          }
-        }
-      }
-    },
-    "game.resume.seat.waiting" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Waiting"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "等待中"
-          }
-        }
-      }
-    },
-    "game.resume.waitingHost" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Waiting for the host to continue…"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "等待房主继续对局…"
-          }
-        }
-      }
-    },
     "game.return.choose" : {
       "localizations" : {
         "en" : {
@@ -3692,38 +3682,6 @@
         }
       }
     },
-    "home.resume.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Resume match"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重新加入对局"
-          }
-        }
-      }
-    },
-    "home.resume.yourTurn" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your turn"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "轮到你"
-          }
-        }
-      }
-    },
     "host_closed" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3805,6 +3763,7 @@
       }
     },
     "incompatible_server" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4077,6 +4036,7 @@
       }
     },
     "invalid_server_response" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4093,6 +4053,7 @@
       }
     },
     "invalid_server_url" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4233,40 +4194,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的席位会保留，重连前的回合将自动跳过。"
-          }
-        }
-      }
-    },
-    "lan.rejoin.detail" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Looking for your game on the local network."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在局域网中查找你的对局。"
-          }
-        }
-      }
-    },
-    "lan.rejoin.searching" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rejoining…"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在重新加入…"
           }
         }
       }
@@ -4546,6 +4473,7 @@
       }
     },
     "lobby.bot.full" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4593,18 +4521,34 @@
         }
       }
     },
-    "lobby.removeBot" : {
+    "lobby.order.hint" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Remove"
+            "value" : "Drag the handles to set the turn order. The starting player is still drawn at random."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "移除"
+            "value" : "拖动右侧手柄可改变回合顺序，起始玩家仍随机决定。"
+          }
+        }
+      }
+    },
+    "lobby.randomBotNames" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Random AI Names"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "随机人机名称"
           }
         }
       }
@@ -4940,7 +4884,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "MultipeerConnectivity 对战"
+            "value" : "面对面对战"
           }
         }
       }
@@ -4961,38 +4905,6 @@
         }
       }
     },
-    "multiplayer.rejoin.detail" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Waiting for the host to make the saved room available."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在等待房主重新开放已保存的房间。"
-          }
-        }
-      }
-    },
-    "multiplayer.rejoin.searching" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Finding Your Match"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在查找对局"
-          }
-        }
-      }
-    },
     "multiplayer.rooms.nearby" : {
       "localizations" : {
         "en" : {
@@ -5009,6 +4921,23 @@
         }
       }
     },
+    "nearby_join_failed" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't reach the host. Make sure both devices have Wi‑Fi and Bluetooth on and stay close together, then try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法连接到房主。请确认两台设备都已开启 Wi‑Fi 和蓝牙、且靠近放置，然后重试。"
+          }
+        }
+      }
+    },
     "nearby.rooms.searching" : {
       "localizations" : {
         "en" : {
@@ -5021,22 +4950,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在搜索附近的玩家…请保持 Wi‑Fi 与蓝牙开启，并在「设置 › 隐私与安全性 › 本地网络」中允许 Luminore 访问。"
-          }
-        }
-      }
-    },
-    "nearby_join_failed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn't reach the host. Make sure both devices have Wi‑Fi and Bluetooth on and stay close together, then try again."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法连接到房主。请确认两台设备都已开启 Wi‑Fi 和蓝牙、且靠近放置，然后重试。"
           }
         }
       }
@@ -5122,6 +5035,7 @@
       }
     },
     "presence.context.internet" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5138,6 +5052,7 @@
       }
     },
     "presence.context.lan" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5154,6 +5069,7 @@
       }
     },
     "presence.context.nearby" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5330,10 +5246,8 @@
         }
       }
     },
-    "room_code_unsupported" : {
-
-    },
     "room_not_found" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5362,6 +5276,297 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "房间已满或对局已经开始。"
+          }
+        }
+      }
+    },
+    "save.browser.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved Matches"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "存档列表"
+          }
+        }
+      }
+    },
+    "save.currentTurn %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轮到：%@"
+          }
+        }
+      }
+    },
+    "save.delete" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除"
+          }
+        }
+      }
+    },
+    "save.delete.confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this save? This cannot be undone."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确定删除该存档？此操作不可撤销。"
+          }
+        }
+      }
+    },
+    "save.empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Saves"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无存档"
+          }
+        }
+      }
+    },
+    "save.empty.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause a match as the host and choose “Save & Exit” to create one."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在对局中作为房主暂停，选择「保存并退出」即可创建存档。"
+          }
+        }
+      }
+    },
+    "save.error.incompleteAssignment" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Each saved seat must be assigned to a different player."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每个存档座位都必须指派给不同的玩家。"
+          }
+        }
+      }
+    },
+    "save.error.playerCountMismatch" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This save does not match the number of players in the room."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该存档的人数与房间当前人数不符。"
+          }
+        }
+      }
+    },
+    "save.match.confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load Save"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确认载入"
+          }
+        }
+      }
+    },
+    "save.match.duplicate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A player is assigned to more than one seat."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有玩家被重复指派到多个座位。"
+          }
+        }
+      }
+    },
+    "save.match.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Each saved seat keeps its progress and its place in the turn order. Players with the same account are paired automatically."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每个存档座位会保留其进度和行动顺序。相同账号的玩家已自动配对。"
+          }
+        }
+      }
+    },
+    "save.match.pick" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请选择"
+          }
+        }
+      }
+    },
+    "save.match.seats" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved seats"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "存档座位"
+          }
+        }
+      }
+    },
+    "save.match.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Match Players"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "匹配玩家"
+          }
+        }
+      }
+    },
+    "save.match.unassigned" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every seat needs a player."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每个座位都需要指派一名玩家。"
+          }
+        }
+      }
+    },
+    "save.playerCount %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld players"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 人"
+          }
+        }
+      }
+    },
+    "save.playerCountMismatch %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs %1$lld players, this room has %2$lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "人数不符：存档 %1$lld 人，当前 %2$lld 人"
+          }
+        }
+      }
+    },
+    "save.seat.original %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Original ID %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原 ID %@"
           }
         }
       }
@@ -5426,23 +5631,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "跟随系统"
-          }
-        }
-      }
-    },
-    "substitute_not_assigned" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The host continued without assigning you to a saved seat."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "房主继续了对局，但未将你分配到已保存的座位。"
           }
         }
       }
@@ -5528,6 +5716,7 @@
       }
     },
     "tutorial.duel.botName" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

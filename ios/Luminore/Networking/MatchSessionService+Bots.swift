@@ -9,6 +9,9 @@ extension MatchSessionService {
     /// Seconds a bot "thinks" before playing, so humans can follow its move.
     private var botThinkDelay: TimeInterval { 0.7 }
 
+    /// UserDefaults key backing the host's random-bot-name preference.
+    nonisolated static let randomBotNamesKey = "lobby.randomBotNames"
+
     // MARK: - Lobby management (host only)
 
     func addBot(difficulty: BotDifficulty) {
@@ -16,12 +19,12 @@ extension MatchSessionService {
               room.descriptor.stage == .lobby || room.descriptor.stage == .configuration
         else { return }
         guard room.participants.count < room.descriptor.maximumPlayers else {
-            presentedError = String(localized: "lobby.bot.full")
+            presentedError = AppLanguage.string("lobby.bot.full")
             return
         }
         let bot = Participant(
             id: UUID(),
-            nickname: Self.botNickname(for: difficulty, in: room.participants),
+            nickname: botNickname(for: difficulty, in: room.participants),
             kind: .bot,
             difficulty: difficulty
         )
@@ -45,14 +48,52 @@ extension MatchSessionService {
         broadcastRoom()
     }
 
-    static func botNickname(for difficulty: BotDifficulty, in participants: [Participant]) -> String {
+    /// Flip the host's naming preference and re-label the AI seats already in the
+    /// room, so the toggle reads as an immediate, visible change rather than a
+    /// setting that only affects the next bot.
+    func setRandomizesBotNames(_ enabled: Bool) {
+        guard randomizesBotNames != enabled else { return }
+        randomizesBotNames = enabled
+        UserDefaults.standard.set(enabled, forKey: Self.randomBotNamesKey)
+        renameBots()
+    }
+
+    /// Re-draw every AI nickname under the current preference. Also used as a
+    /// re-roll: calling it while randomisation is on hands out a fresh set.
+    func renameBots() {
+        guard isHost, var room,
+              room.descriptor.stage == .lobby || room.descriptor.stage == .configuration,
+              room.participants.contains(where: { $0.kind == .bot })
+        else { return }
+        var taken = Set(room.participants.filter { $0.kind == .human }.map(\.nickname))
+        for index in room.participants.indices where room.participants[index].kind == .bot {
+            let difficulty = room.participants[index].difficulty ?? .normal
+            let name = botNickname(for: difficulty, excluding: taken)
+            room.participants[index].nickname = name
+            taken.insert(name)
+        }
+        room.revision += 1
+        self.room = room
+        broadcastRoom()
+    }
+
+    func botNickname(for difficulty: BotDifficulty, in participants: [Participant]) -> String {
+        botNickname(for: difficulty, excluding: Set(participants.map(\.nickname)))
+    }
+
+    /// Either a playful random name or the difficulty-numbered default, always
+    /// distinct from the names already in the room (numbering by "first free
+    /// index" keeps it stable when a middle bot is removed).
+    private func botNickname(for difficulty: BotDifficulty, excluding taken: Set<String>) -> String {
+        if randomizesBotNames { return BotNameGenerator.randomName(excluding: taken) }
         let base: String
         switch difficulty {
-        case .easy: base = String(localized: "bot.name.easy")
-        case .normal: base = String(localized: "bot.name.normal")
-        case .hard: base = String(localized: "bot.name.hard")
+        case .easy: base = AppLanguage.string("bot.name.easy")
+        case .normal: base = AppLanguage.string("bot.name.normal")
+        case .hard: base = AppLanguage.string("bot.name.hard")
         }
-        let index = participants.count(where: { $0.kind == .bot }) + 1
+        var index = 1
+        while taken.contains("\(base) \(index)") { index += 1 }
         return "\(base) \(index)"
     }
 

@@ -12,9 +12,7 @@ extension MatchSessionService {
         case .ready:
             roomCode = transport.roomCode
             if isHost {
-                if isAwaitingResumeAssignment {
-                    phase = .lobby
-                } else if let state = authoritativeGame {
+                if let state = authoritativeGame {
                     phase = state.status == .finished ? .results : .game
                 } else {
                     switch room?.descriptor.stage {
@@ -61,10 +59,10 @@ extension MatchSessionService {
             isReconnectLoopActive = false
             hostPeer = nil
             transport.disconnect(closeRoom: false)
-            presentedError = NSLocalizedString(reason, comment: "")
+            presentedError = AppLanguage.string(reason)
             phase = .ended
         case let .failed(message):
-            presentedError = NSLocalizedString(message, comment: "")
+            presentedError = AppLanguage.string(message)
             guard phase == .connecting else { return }
             if room == nil {
                 phase = .ended
@@ -126,7 +124,7 @@ extension MatchSessionService {
             send(.join(request), to: peer)
         case let .joinResponse(response):
             guard response.accepted else {
-                presentedError = NSLocalizedString(response.reason ?? "join_rejected", comment: "")
+                presentedError = AppLanguage.string(response.reason ?? "join_rejected")
                 phase = .ended
                 transport.disconnect(closeRoom: false)
                 return
@@ -173,7 +171,7 @@ extension MatchSessionService {
             isLeaving = true
             leave()
         case let .error(message):
-            presentedError = NSLocalizedString(message, comment: "")
+            presentedError = AppLanguage.string(message)
         default:
             break
         }
@@ -194,14 +192,8 @@ extension MatchSessionService {
             // same account UUID (shared iCloud / family sharing) from seizing a seat it
             // never held. Legacy clients that send no install fall back to token-only
             // reclaim.
-            //
-            // Exception: while resuming a saved match, everyone quit long ago and their
-            // in-memory tokens are gone — so reclaim by matching UUID alone (this game
-            // has no anti-cheat requirement anyway).
-            let hasSavedCredentials = tokens[request.participantID] != nil
-                || seatInstalls[request.participantID] != nil
-            let credentialsOK = (request.sessionToken == tokens[request.participantID] && installMatchesSeat(request))
-                || (isAwaitingResumeAssignment && !hasSavedCredentials)
+            let credentialsOK = request.sessionToken == tokens[request.participantID]
+                && installMatchesSeat(request)
             guard !room.participants[index].isConnected, credentialsOK else {
                 send(.joinResponse(.init(accepted: false, reason: "identity_in_use", sessionToken: nil)), to: peer)
                 return
@@ -227,29 +219,6 @@ extension MatchSessionService {
             } else {
                 room.participants[index].medalCount = request.medalCount
             }
-        } else if isAwaitingResumeAssignment {
-            // Resuming a saved match: a joiner whose UUID matches no seat is a
-            // substitute. Hold the connection until the host assigns it to a vacant
-            // seat; don't touch the roster yet.
-            let substituteToken = tokens[request.participantID] ?? randomToken()
-            tokens[request.participantID] = substituteToken
-            substitutePeers[request.participantID] = peer
-            substituteInstalls[request.participantID] = request.deviceInstallID
-            if let install = request.deviceInstallID { seatInstalls[request.participantID] = install }
-            pendingPeers.remove(peer)
-            peerParticipants[peer] = request.participantID
-            if !pendingSubstitutes.contains(where: { $0.id == request.participantID }) {
-                pendingSubstitutes.append(PendingSubstitute(
-                    id: request.participantID,
-                    nickname: request.nickname,
-                    medalCount: request.medalCount,
-                    installID: request.deviceInstallID
-                ))
-            }
-            send(.joinResponse(.init(accepted: true, reason: nil, sessionToken: substituteToken)), to: peer)
-            // Show the substitute the waiting room so they leave the connecting spinner.
-            send(.room(room), to: peer)
-            return
         } else {
             guard room.descriptor.stage == .lobby, room.participants.count < room.descriptor.maximumPlayers else {
                 send(.joinResponse(.init(accepted: false, reason: "room_unavailable", sessionToken: nil)), to: peer)
@@ -274,9 +243,7 @@ extension MatchSessionService {
         send(.joinResponse(.init(accepted: true, reason: nil, sessionToken: tokens[request.participantID])), to: peer)
         broadcastRoom()
         updateAdvertisement()
-        // While resuming, keep rejoined players in the waiting lobby until the host
-        // continues; only push live game state during an actual in-progress match.
-        if authoritativeGame != nil, !isAwaitingResumeAssignment {
+        if authoritativeGame != nil {
             // Ends the reconnect-wait if everyone's back, reschedules the timer,
             // and broadcasts a fresh, consistent snapshot (turn + deadline + pause)
             // to all peers including the one that just returned.
@@ -313,19 +280,11 @@ extension MatchSessionService {
         challenges.removeValue(forKey: peer)
         if isHost {
             pendingPeers.remove(peer)
-            if let subID = peerParticipants[peer], substitutePeers[subID] == peer {
-                substitutePeers.removeValue(forKey: subID)
-                substituteInstalls.removeValue(forKey: subID)
-                pendingSubstitutes.removeAll { $0.id == subID }
-                peerParticipants.removeValue(forKey: peer)
-                return
-            }
             guard let playerID = peerParticipants.removeValue(forKey: peer), participantPeers[playerID] == peer else { return }
             participantPeers.removeValue(forKey: playerID)
             guard var room, let index = room.participants.firstIndex(where: { $0.id == playerID }) else { return }
-            // A normal pre-game lobby can remove leavers. A saved match also uses
-            // the lobby stage while seats are reclaimed, but its authoritative game
-            // already exists, so removing a seat would destroy resume identity.
+            // A pre-game lobby can simply drop leavers; once a game exists the seat
+            // must stay so the player can reclaim it.
             if room.descriptor.stage == .lobby, authoritativeGame == nil {
                 room.participants.remove(at: index)
             } else {

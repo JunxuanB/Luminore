@@ -117,12 +117,12 @@ enum PersistenceController {
     private static let cloudSchema = Schema([
         AccountProfile.self, MedalRecord.self, CompletedGameRecord.self, PresenceLease.self
     ])
-    // Local-only models: in-progress/saved matches. Large state blobs and no
-    // cross-device resume, so these deliberately never mirror to CloudKit.
-    private static let localSchema = Schema([SavedGameRecord.self, ActiveMatchRecord.self])
+    // Local-only models: saved matches. Large state blobs and no cross-device
+    // resume, so these deliberately never mirror to CloudKit.
+    private static let localSchema = Schema([GameSaveRecord.self])
     private static let fullSchema = Schema([
         AccountProfile.self, MedalRecord.self, CompletedGameRecord.self, PresenceLease.self,
-        SavedGameRecord.self, ActiveMatchRecord.self
+        GameSaveRecord.self
     ])
 
     static func makeContainer() -> ModelContainer {
@@ -144,7 +144,7 @@ enum PersistenceController {
             at: storeURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        // The saved/active-match store is always a plain local store, paired with
+        // The saved-match store is always a plain local store, paired with
         // whichever primary store (cloud or local fallback) we can bring up.
         let resume = ModelConfiguration(
             "LuminoreLocal",
@@ -167,8 +167,25 @@ enum PersistenceController {
             do {
                 return try ModelContainer(for: fullSchema, configurations: [local, resume])
             } catch {
-                fatalError("Unable to create Luminore data store: \(error)")
+                // Last resort: the local store holds nothing but saved matches, and
+                // an unmigratable one (e.g. left behind by an older save format)
+                // must not make the app unlaunchable. Discard it and start over.
+                discardLocalStore(at: localStoreURL)
+                do {
+                    return try ModelContainer(for: fullSchema, configurations: [local, resume])
+                } catch {
+                    fatalError("Unable to create Luminore data store: \(error)")
+                }
             }
+        }
+    }
+
+    /// Delete the local saved-match store and its SQLite sidecars.
+    private static func discardLocalStore(at url: URL) {
+        for suffix in ["", "-wal", "-shm"] {
+            let path = url.deletingLastPathComponent()
+                .appending(path: url.lastPathComponent + suffix)
+            try? FileManager.default.removeItem(at: path)
         }
     }
 }

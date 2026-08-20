@@ -2,29 +2,6 @@ import Foundation
 import LuminoreCore
 import SwiftData
 
-/// A returning player with a new account identity, waiting for the host to assign
-/// them to one of the saved match's vacant seats.
-struct PendingSubstitute: Identifiable, Equatable {
-    let id: UUID
-    let nickname: String
-    let medalCount: Int
-    let installID: UUID?
-
-    init(id: UUID, nickname: String, medalCount: Int = 0, installID: UUID?) {
-        self.id = id
-        self.nickname = nickname
-        self.medalCount = max(0, medalCount)
-        self.installID = installID
-    }
-}
-
-/// The reconnect maps persisted alongside a saved game so returning players can
-/// reclaim their seats after the room is re-hosted. String-keyed for JSON.
-struct SavedSessionMaps: Codable {
-    var tokens: [String: String]
-    var seatInstalls: [String: String]
-}
-
 @MainActor
 final class MatchSessionService: ObservableObject {
     enum Phase: Equatable {
@@ -56,14 +33,13 @@ final class MatchSessionService: ObservableObject {
 
     /// Convenience: any pause (host or disconnect) is active.
     var isPaused: Bool { matchPause != nil }
-    /// True on the host after resuming a saved game, until it confirms seat
-    /// assignment and continues. While true, unmatched joiners become substitutes.
-    @Published var isAwaitingResumeAssignment = false
-    /// Returning players (new identities) waiting to be assigned to a vacant seat.
-    @Published var pendingSubstitutes: [PendingSubstitute] = []
-    /// Set when the host saves & suspends the match, or when a client is told the
-    /// host suspended it — the UI keeps the rejoin record instead of clearing it.
+    /// Set when the host saves & ends the match, or when a client is told the host
+    /// did — the flow dismisses itself instead of showing a disconnection error.
     @Published var wasSuspended = false
+    /// Host preference: name AI seats with playful random nicknames in the host's
+    /// language instead of the difficulty-numbered defaults. Persisted across
+    /// launches; change it through `setRandomizesBotNames(_:)`.
+    @Published var randomizesBotNames = UserDefaults.standard.bool(forKey: MatchSessionService.randomBotNamesKey)
 
     let localID: UUID
     let deviceInstallID: UUID
@@ -117,10 +93,6 @@ final class MatchSessionService: ObservableObject {
     let disconnectGraceDuration: TimeInterval = 15
     var isReconnectLoopActive = false
     var isLeaving = false
-    /// Host-side: pending substitute participant UUID → its connection, before the
-    /// host assigns it to a seat.
-    var substitutePeers: [UUID: TransportPeerID] = [:]
-    var substituteInstalls: [UUID: UUID] = [:]
 
     init(
         localID: UUID,
@@ -129,7 +101,6 @@ final class MatchSessionService: ObservableObject {
         mode: MultiplayerMode = .lan,
         serverURL: URL? = nil,
         deviceInstallID: UUID = DeviceIdentity.installID,
-        restoredSessionToken: String? = nil,
         transport: (any MatchTransport)? = nil
     ) {
         self.localID = localID
@@ -138,7 +109,6 @@ final class MatchSessionService: ObservableObject {
         self.mode = mode
         self.serverURL = serverURL
         self.deviceInstallID = deviceInstallID
-        self.sessionToken = restoredSessionToken
         self.transport = transport ?? MatchTransportFactory.make(mode: mode, serverURL: serverURL)
         configureTransportCallbacks()
     }
@@ -222,6 +192,17 @@ final class MatchSessionService: ObservableObject {
         try await transport.resolveRoom(id: id)
     }
 
+    /// Host-only reordering of the lobby roster. Seat order here becomes the turn
+    /// order at `startGame` (the opening player is still drawn at random), so the
+    /// host can seat people deliberately before configuring the match.
+    func moveParticipants(fromOffsets source: IndexSet, toOffset destination: Int) {
+        guard isHost, var room, room.descriptor.stage == .lobby else { return }
+        room.participants.move(fromOffsets: source, toOffset: destination)
+        room.revision += 1
+        self.room = room
+        broadcastRoom()
+    }
+
     func enterConfiguration() {
         guard isHost, var room, room.participants.filter(\.isConnected).count >= 2 else { return }
         room.descriptor.stage = .configuration
@@ -236,7 +217,7 @@ final class MatchSessionService: ObservableObject {
         guard isHost, var room, room.descriptor.stage == .configuration else { return }
         if configuration.mode == .duel,
            room.participants.filter(\.isConnected).count != 2 {
-            presentedError = String(localized: "config.duel.requiresTwo")
+            presentedError = AppLanguage.string("config.duel.requiresTwo")
             return
         }
         room.configuration = configuration
@@ -292,7 +273,6 @@ final class MatchSessionService: ObservableObject {
         tutorialOpponentActions.removeAll()
         openingTurnSelection = nil
         clearPauseState()
-        isAwaitingResumeAssignment = false
         room.participants.removeAll { !$0.isConnected }
         guard room.participants.count >= 2 else {
             room.descriptor.stage = .lobby
@@ -337,10 +317,6 @@ final class MatchSessionService: ObservableObject {
         phase = .menu
         isHost = false
         clearPauseState()
-        isAwaitingResumeAssignment = false
-        pendingSubstitutes.removeAll()
-        substitutePeers.removeAll()
-        substituteInstalls.removeAll()
         isReconnectLoopActive = false
         tokens.removeAll()
         seatInstalls.removeAll()

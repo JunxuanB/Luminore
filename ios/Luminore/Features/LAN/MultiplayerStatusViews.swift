@@ -84,59 +84,6 @@ struct ReconnectingView: View {
     }
 }
 
-/// Finds the saved room through the session's original transport and rejoins with
-/// the persisted session token held by `MatchSessionService`.
-struct RejoinView: View {
-    @ObservedObject var session: MatchSessionService
-    let roomID: UUID
-    @State private var password = ""
-    @State private var lockedRoom: DiscoveredMatchRoom?
-
-    var body: some View {
-        VStack(spacing: 18) {
-            ProgressView().controlSize(.large)
-            Text("multiplayer.rejoin.searching").font(.title2.bold())
-            Text("multiplayer.rejoin.detail")
-                .foregroundStyle(.secondary).multilineTextAlignment(.center)
-        }
-        .padding(32)
-        .onAppear { session.startBrowsing() }
-        .onDisappear { session.stopBrowsing() }
-        .onChange(of: session.discoveredRooms) { _, rooms in
-            guard session.phase == .menu, lockedRoom == nil,
-                  let room = rooms.first(where: { $0.id == roomID })
-            else { return }
-            joinOrAskPassword(room)
-        }
-        .task(id: roomID) {
-            while !Task.isCancelled, session.phase == .menu {
-                if let room = try? await session.resolveRoom(id: roomID) {
-                    joinOrAskPassword(room)
-                    return
-                }
-                try? await Task.sleep(for: .seconds(3))
-            }
-        }
-        .alert("lan.password.title", isPresented: Binding(
-            get: { lockedRoom != nil },
-            set: { if !$0 { lockedRoom = nil; password = "" } }
-        )) {
-            SecureField("lan.room.password", text: $password)
-            Button("lan.join") { if let lockedRoom { session.join(lockedRoom, password: password) } }
-            Button("common.cancel", role: .cancel) { lockedRoom = nil }
-        }
-    }
-
-    private func joinOrAskPassword(_ room: DiscoveredMatchRoom) {
-        guard session.phase == .menu, lockedRoom == nil else { return }
-        if room.descriptor.isPasswordProtected {
-            lockedRoom = room
-        } else {
-            session.join(room, password: "")
-        }
-    }
-}
-
 extension MultiplayerMode {
     var titleKey: LocalizedStringKey {
         switch self {
@@ -156,9 +103,9 @@ extension MultiplayerMode {
 
     var presenceContext: String {
         switch self {
-        case .lan: String(localized: "presence.context.lan")
-        case .internet: String(localized: "presence.context.internet")
-        case .nearby: String(localized: "presence.context.nearby")
+        case .lan: AppLanguage.string("presence.context.lan")
+        case .internet: AppLanguage.string("presence.context.internet")
+        case .nearby: AppLanguage.string("presence.context.nearby")
         }
     }
 }
