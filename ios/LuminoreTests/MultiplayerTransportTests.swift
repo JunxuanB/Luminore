@@ -259,6 +259,84 @@ final class MultiplayerTransportTests: XCTestCase {
         XCTAssertTrue(session.isLeaving)
     }
 
+    /// Creating a room while the network is flaky must not strand the host on the
+    /// connecting spinner behind an alert: nothing was established, so the only
+    /// useful place to land is the menu they can retry from.
+    func testFailedRoomCreationReturnsTheHostToTheMenu() {
+        for mode in MultiplayerMode.allCases {
+            let transport = FakeMatchTransport(mode: mode)
+            transport.failsHosting = "offline"
+            let host = MatchSessionService(localID: UUID(), nickname: "Host", mode: mode, transport: transport)
+
+            host.host(roomName: "Flaky", password: "")
+
+            XCTAssertEqual(host.phase, .menu, "\(mode)")
+            XCTAssertNotNil(host.presentedError, "\(mode)")
+            XCTAssertNil(host.room, "\(mode)")
+        }
+    }
+
+    /// Typing an invite code while the host is still in the chat app they shared it
+    /// from parks the joiner on a wait, not on a reconnect — and never on a dead
+    /// end. Once the host is back the ordinary handshake takes over.
+    func testJoiningWhileTheHostIsAwayWaitsInsteadOfFailing() throws {
+        let hostTransport = FakeMatchTransport(mode: .internet)
+        let clientTransport = FakeMatchTransport(mode: .internet)
+        hostTransport.other = clientTransport
+        clientTransport.other = hostTransport
+        let host = MatchSessionService(localID: UUID(), nickname: "Host", mode: .internet, transport: hostTransport)
+        let client = MatchSessionService(localID: UUID(), nickname: "Guest", mode: .internet, transport: clientTransport)
+
+        host.host(roomName: "Shared", password: "")
+        let descriptor = try XCTUnwrap(host.room?.descriptor)
+
+        // The relay accepted the socket but has no host attached to it yet.
+        client.room = RoomSnapshot(descriptor: descriptor, participants: [])
+        client.phase = .connecting
+        clientTransport.emit(.hostUnavailable)
+
+        XCTAssertEqual(client.phase, .reconnecting)
+        XCTAssertTrue(client.isWaitingForHost)
+        XCTAssertFalse(client.isLeaving)
+
+        client.join(DiscoveredMatchRoom(descriptor: descriptor), password: "")
+
+        XCTAssertEqual(client.phase, .lobby)
+        XCTAssertFalse(client.isWaitingForHost)
+        XCTAssertEqual(host.room?.participants.count, 2)
+    }
+
+    /// Returning to the app has to re-validate the link on every transport — the
+    /// host most of all, since nothing else re-opens the socket that its room is
+    /// advertised through.
+    func testForegroundingRevalidatesTheTransportForHostAndClient() {
+        for mode in MultiplayerMode.allCases {
+            let hostTransport = FakeMatchTransport(mode: mode)
+            let clientTransport = FakeMatchTransport(mode: mode)
+            hostTransport.other = clientTransport
+            clientTransport.other = hostTransport
+            let host = MatchSessionService(localID: UUID(), nickname: "Host", mode: mode, transport: hostTransport)
+            let client = MatchSessionService(localID: UUID(), nickname: "Guest", mode: mode, transport: clientTransport)
+
+            host.host(roomName: "Away", password: "")
+            client.join(DiscoveredMatchRoom(descriptor: host.room!.descriptor), password: "")
+
+            host.applicationWillResignActive()
+            host.applicationDidBecomeActive()
+            client.applicationDidBecomeActive()
+
+            XCTAssertEqual(hostTransport.foregroundCalls, 1, "\(mode)")
+            XCTAssertEqual(clientTransport.foregroundCalls, 1, "\(mode)")
+            XCTAssertEqual(host.phase, .lobby, "\(mode)")
+            XCTAssertEqual(client.phase, .lobby, "\(mode)")
+
+            // A session on its way out must not be revived by a late scene change.
+            host.leave()
+            host.applicationDidBecomeActive()
+            XCTAssertEqual(hostTransport.foregroundCalls, 1, "\(mode)")
+        }
+    }
+
     func testSuspendCleanupSurvivesSessionRelease() async throws {
         let transport = FakeMatchTransport(mode: .internet)
         var session: MatchSessionService? = MatchSessionService(

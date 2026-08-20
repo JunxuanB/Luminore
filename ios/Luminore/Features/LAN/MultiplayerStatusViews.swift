@@ -76,11 +76,22 @@ struct ReconnectingView: View {
     var body: some View {
         VStack(spacing: 18) {
             ProgressView().controlSize(.large)
-            Text("lan.reconnecting").font(.title2.bold())
-            Text("lan.reconnecting.detail")
+            Text(titleKey).font(.title2.bold())
+            Text(detailKey)
                 .foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .padding(32)
+    }
+
+    /// Joining by code while the host is still in the app they shared it from is
+    /// a wait, not a recovery — saying "reconnecting" for a link that was never
+    /// up reads as an error the player caused.
+    private var titleKey: LocalizedStringKey {
+        session.isWaitingForHost ? "lan.waitingHost" : "lan.reconnecting"
+    }
+
+    private var detailKey: LocalizedStringKey {
+        session.isWaitingForHost ? "lan.waitingHost.detail" : "lan.reconnecting.detail"
     }
 }
 

@@ -62,15 +62,16 @@ extension MatchSessionService {
             presentedError = AppLanguage.string(reason)
             phase = .ended
         case let .failed(message):
+            guard !isLeaving else { return }
             presentedError = AppLanguage.string(message)
             guard phase == .connecting else { return }
             if room == nil {
                 phase = .ended
-            } else if !isHost, room?.participants.isEmpty == true {
-                // The join never got off the ground — the host has not sent a
-                // roster yet, so nothing is half-established. Drop back to the
-                // menu so the player can pick the room again instead of being
-                // stranded on the connecting spinner.
+            } else if isHost || room?.participants.isEmpty == true {
+                // Nothing got off the ground: the host's room was never opened on
+                // the relay, or the joiner has yet to receive a roster. Either way
+                // nothing is half-established, so drop back to the menu instead of
+                // stranding the player on the connecting spinner behind the alert.
                 leave()
             }
         }

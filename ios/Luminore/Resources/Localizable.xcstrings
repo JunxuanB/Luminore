@@ -4456,6 +4456,38 @@
         }
       }
     },
+    "lan.waitingHost" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for the host"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待房主"
+          }
+        }
+      }
+    },
+    "lan.waitingHost.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The room is still open — the host has just stepped away. You will join automatically as soon as they are back."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "房间还在，房主只是暂时离开了。等他回来后会自动加入。"
+          }
+        }
+      }
+    },
     "lobby.addBot" : {
       "localizations" : {
         "en" : {

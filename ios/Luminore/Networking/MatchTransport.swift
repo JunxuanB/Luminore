@@ -50,6 +50,17 @@ protocol MatchTransport: AnyObject {
     func send(_ envelope: WireEnvelope, to recipient: TransportRecipient)
     func updateRoom(_ descriptor: RoomDescriptor, isPublic: Bool)
     func disconnect(closeRoom: Bool)
+    /// The app returned to the foreground. iOS tears down sockets, Bonjour
+    /// listeners and nearby sessions while a process is suspended, and the
+    /// failure only surfaces on the next read or write — so re-validate the link
+    /// here rather than leaving the player sitting on one that is already dead.
+    func applicationDidBecomeActive()
+}
+
+extension MatchTransport {
+    /// Transports with no suspendable resources (the offline loopback) need no
+    /// foreground handling.
+    func applicationDidBecomeActive() {}
 }
 
 enum MatchTransportFactory {

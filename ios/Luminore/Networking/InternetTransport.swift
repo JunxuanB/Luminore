@@ -64,7 +64,16 @@ final class InternetTransport: MatchTransport {
         let normalized = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard normalized.count == 6 else { throw MatchTransportError.roomNotFound }
         let response: RoomResponse = try await request(path: "v1/rooms/code/\(normalized)")
-        guard response.room.hostConnected else { throw MatchTransportError.roomNotFound }
+        guard response.room.relayProtocolVersion == Self.relayProtocolVersion,
+              response.room.gameProtocolVersion == WireEnvelope.currentProtocolVersion
+        else { throw MatchTransportError.incompatibleServer }
+        // Deliberately no `hostConnected` check. The relay holds a room open for
+        // 30 minutes after its host drops, and the single most likely moment for
+        // someone to type an invite code is while the host is still in the chat
+        // app they shared it from. Joining then parks on the waiting screen until
+        // the host is back, which beats "room not found" for a room that plainly
+        // exists. The public browse list keeps the filter — an unreachable room is
+        // not worth showing to someone who is only shopping around.
         return DiscoveredMatchRoom(descriptor: response.room.descriptor)
     }
 
@@ -239,15 +248,49 @@ final class InternetTransport: MatchTransport {
                 }
             }
         }
-        // The session request timeout is intentionally disabled, so a stalled
-        // handshake (server unreachable after the room resolved) would otherwise
-        // hang forever. Bound the connect: if no `ready` arrives, treat it as a
-        // drop so the client's reconnect loop / host recovery retries.
+        startHandshakeWatchdog(socket)
+    }
+
+    /// The session request timeout is intentionally disabled, so a stalled
+    /// handshake (server unreachable after the room resolved) would otherwise hang
+    /// forever. Bound the connect: if no `ready` arrives, treat it as a drop so the
+    /// client's reconnect loop / host recovery retries. Re-armed on foreground —
+    /// suspended time counts against the sleep, so a handshake that was merely
+    /// interrupted by an app switch would otherwise be failed the instant the
+    /// player comes back.
+    private func startHandshakeWatchdog(_ socket: URLSessionWebSocketTask) {
+        handshakeTask?.cancel()
         handshakeTask = Task { [weak self, weak socket] in
             try? await Task.sleep(for: .seconds(20))
             guard !Task.isCancelled, let self, let socket,
                   self.socket === socket, !self.didReceiveReady else { return }
             self.handleConnectionDrop(socket)
+        }
+    }
+
+    func applicationDidBecomeActive() {
+        guard !isIntentionallyClosing, room != nil else { return }
+        guard let socket else {
+            // Nothing else re-opens the host's own relay socket, and a client that
+            // dropped while suspended should not sit out the reconnect backoff.
+            // A host with no token yet is still waiting on its create-room request,
+            // which opens the socket itself — racing it here would only produce an
+            // unauthorized connect.
+            if isHosting {
+                if hostToken != nil { scheduleHostReconnect(delay: .zero) }
+            } else {
+                reconnect()
+            }
+            return
+        }
+        if !didReceiveReady { startHandshakeWatchdog(socket) }
+        // A socket iOS closed under us reports nothing until the next read or
+        // write, which for an idle lobby is a full keepalive interval away. Probe
+        // it now so the room is either provably live or already recovering by the
+        // time the player looks at the screen.
+        socket.sendPing { [weak self, weak socket] error in
+            guard error != nil, let socket else { return }
+            Task { @MainActor in self?.handleConnectionDrop(socket) }
         }
     }
 
@@ -288,11 +331,11 @@ final class InternetTransport: MatchTransport {
     /// `handleConnectionDrop` schedules the next attempt, giving a self-pacing retry
     /// loop that stops once the socket is live or the room is closed. Clients
     /// reconnect through the session instead, so this is host-only.
-    private func scheduleHostReconnect() {
+    private func scheduleHostReconnect(delay: Duration = .seconds(2)) {
         guard isHosting, !isIntentionallyClosing, socket == nil else { return }
         hostReconnectTask?.cancel()
         hostReconnectTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(2))
+            try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 guard let self, !self.isIntentionallyClosing, self.socket == nil else { return }
@@ -380,7 +423,11 @@ final class InternetTransport: MatchTransport {
             }
             onRoomsChanged?(compatible.map { DiscoveredMatchRoom(descriptor: $0.descriptor) })
         } catch {
-            onEvent?(.failed(error.localizedDescription))
+            // Browsing polls every few seconds, so surfacing failures would turn a
+            // moment of flaky signal — or the first poll after the app wakes — into
+            // a stream of modal alerts over the room picker. Keep the last known
+            // list and let the empty state speak for itself; anything genuinely
+            // wrong with the server is reported by its health check.
         }
     }
 

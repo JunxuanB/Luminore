@@ -93,6 +93,9 @@ final class MatchSessionService: ObservableObject {
     let disconnectGraceDuration: TimeInterval = 15
     var isReconnectLoopActive = false
     var isLeaving = false
+    /// Keeps the transport running for the short grant iOS gives a backgrounded
+    /// app, so stepping out to share an invite code does not drop the room.
+    private let backgroundGuard = BackgroundActivityGuard()
 
     init(
         localID: UUID,
@@ -293,6 +296,7 @@ final class MatchSessionService: ObservableObject {
 
     func leave() {
         isLeaving = true
+        backgroundGuard.end()
         turnTask?.cancel()
         openingTurnTask?.cancel()
         botTask?.cancel()
@@ -365,12 +369,35 @@ final class MatchSessionService: ObservableObject {
         return room?.participants.contains { !$0.isConnected && $0.id != localID } ?? false
     }
 
-    /// Call when the app returns to the foreground so a client that dropped while
-    /// suspended reconnects immediately instead of waiting out the backoff.
+    /// Call when the app is about to lose the foreground. Claims the short
+    /// background grant so a live link survives the round trip out to another app
+    /// — the host pasting the invite code into a chat is exactly that round trip,
+    /// and losing the relay socket there is what makes a freshly created room look
+    /// to the joining friend like it never existed.
+    func applicationWillResignActive() {
+        guard !isLeaving, phase != .menu, phase != .ended else { return }
+        backgroundGuard.begin()
+    }
+
+    /// Call when the app returns to the foreground. Sockets and radio services die
+    /// while a process is suspended and only report it on their next use, so the
+    /// link is re-validated up front instead of after a keepalive interval of
+    /// silence — for the host, that silence is a window in which nobody can join.
     func applicationDidBecomeActive() {
-        guard !isHost, !isLeaving, phase == .reconnecting, hostPeer == nil else { return }
+        backgroundGuard.end()
+        guard !isLeaving else { return }
+        transport.applicationDidBecomeActive()
+        guard !isHost, phase == .reconnecting, hostPeer == nil else { return }
         transport.reconnect()
         scheduleReconnect()
+    }
+
+    /// True while a client is parked waiting for a host it has never reached —
+    /// joining by code while the host is briefly away — as opposed to recovering a
+    /// link that was previously established. Only the wording differs, but
+    /// "reconnecting" is actively confusing on a first join.
+    var isWaitingForHost: Bool {
+        !isHost && phase == .reconnecting && room?.participants.isEmpty == true
     }
 
     var isOpeningTurnSelection: Bool {

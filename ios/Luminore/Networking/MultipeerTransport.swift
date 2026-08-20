@@ -121,6 +121,20 @@ final class MultipeerTransport: NSObject, MatchTransport {
         startInviting(announcesFailure: false)
     }
 
+    func applicationDidBecomeActive() {
+        if isHosting, let descriptor {
+            // MPC stops advertising while the app is suspended and never resumes
+            // on its own, so a host who stepped out to share the room would come
+            // back invisible to everyone still looking for it. Republishing costs
+            // nothing here: a suspended app has no invitation in flight for the
+            // restart to interrupt.
+            startAdvertising(descriptor)
+        } else if targetRoomID != nil, !isConnectedToHost {
+            reconnect()
+        }
+        if isListVisible { ensureBrowser() }
+    }
+
     /// Re-sends the invitation until the session connects. A lone `invitePeer` is
     /// lost whenever the host is between advertiser instances, and MPC reports
     /// nothing back in that case — the joiner would just hang on the spinner.

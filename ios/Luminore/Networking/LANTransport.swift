@@ -20,9 +20,13 @@ final class LANTransport: MatchTransport {
     private var savedEndpoint: NWEndpoint?
     private var descriptor: RoomDescriptor?
     private var isHosting = false
+    /// True while a room picker is on screen. The browser is torn down by the
+    /// system across a suspension, so this records whether one should be rebuilt.
+    private var isListVisible = false
 
     func startBrowsing() {
         stopBrowsing()
+        isListVisible = true
         let browser = NWBrowser(for: .bonjourWithTXTRecord(type: Self.serviceType, domain: nil), using: .tcp)
         browser.browseResultsChangedHandler = { [weak self] results, _ in
             let parsed = results.compactMap(Self.parseResult)
@@ -35,9 +39,15 @@ final class LANTransport: MatchTransport {
                 })
             }
         }
-        browser.stateUpdateHandler = { [weak self] state in
-            if case let .failed(error) = state {
-                Task { @MainActor in self?.onEvent?(.failed(error.localizedDescription)) }
+        browser.stateUpdateHandler = { [weak self, weak browser] state in
+            guard case .failed = state else { return }
+            Task { @MainActor in
+                // A browser the system tore down (typically while the app was
+                // suspended) never recovers on its own. Forget it silently — a
+                // modal alert over the room picker is noise the player cannot act
+                // on — so `applicationDidBecomeActive()` can start a fresh one.
+                guard let self, let browser, self.browser === browser else { return }
+                self.browser = nil
             }
         }
         self.browser = browser
@@ -45,6 +55,7 @@ final class LANTransport: MatchTransport {
     }
 
     func stopBrowsing() {
+        isListVisible = false
         browser?.cancel()
         browser = nil
         roomEndpoints.removeAll()
@@ -67,18 +78,38 @@ final class LANTransport: MatchTransport {
         disconnect(closeRoom: true)
         descriptor = room
         isHosting = true
+        startListener(room)
+    }
+
+    /// Publishes the Bonjour service and starts accepting joins. Split out from
+    /// `host(room:isPublic:)` because a listener the system reclaims — which is
+    /// what happens once the host leaves the app for more than the background
+    /// grant — has to be rebuilt from scratch on the way back in.
+    private func startListener(_ room: RoomDescriptor) {
+        listener?.cancel()
+        listener = nil
         do {
             let listener = try NWListener(using: .tcp)
             listener.service = makeService(room)
             listener.newConnectionHandler = { [weak self] connection in
                 Task { @MainActor in self?.accept(connection) }
             }
-            listener.stateUpdateHandler = { [weak self] state in
+            listener.stateUpdateHandler = { [weak self, weak listener] state in
                 Task { @MainActor in
+                    guard let self, let listener, self.listener === listener else { return }
                     switch state {
-                    case .ready: self?.onEvent?(.ready)
-                    case let .failed(error): self?.onEvent?(.failed(error.localizedDescription))
-                    default: break
+                    case .ready:
+                        self.onEvent?(.ready)
+                    case let .failed(error):
+                        // Keeping a dead listener would leave the room on screen
+                        // for the host while silently refusing every join. Drop it
+                        // so the next foreground publishes a fresh one.
+                        self.listener = nil
+                        self.onEvent?(.failed(error.localizedDescription))
+                    case .cancelled:
+                        self.listener = nil
+                    default:
+                        break
                     }
                 }
             }
@@ -87,6 +118,15 @@ final class LANTransport: MatchTransport {
         } catch {
             onEvent?(.failed(error.localizedDescription))
         }
+    }
+
+    func applicationDidBecomeActive() {
+        if isHosting {
+            if listener == nil, let descriptor { startListener(descriptor) }
+        } else {
+            reconnect()
+        }
+        if isListVisible, browser == nil { startBrowsing() }
     }
 
     func join(room: DiscoveredMatchRoom) {

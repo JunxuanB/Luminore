@@ -157,7 +157,15 @@ struct MultiplayerFlowView: View {
             .onChange(of: session.phase) { old, new in handlePhaseChange(from: old, to: new) }
             .onChange(of: session.game?.status) { _, _ in recordOutcomeIfFinished() }
             .onChange(of: scenePhase) { _, new in
-                if new == .active { session.applicationDidBecomeActive() }
+                // `.inactive` already means the app is on its way out (app
+                // switcher, share sheet hand-off), and the background grant has to
+                // be claimed before the process is suspended — so anything that is
+                // not `.active` arms it.
+                if new == .active {
+                    session.applicationDidBecomeActive()
+                } else {
+                    session.applicationWillResignActive()
+                }
             }
             .onChange(of: session.wasSuspended) { _, suspended in
                 // The host saved the match and ended it: everyone goes home.

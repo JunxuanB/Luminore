@@ -17,6 +17,10 @@ final class FakeMatchTransport: MatchTransport {
     var disconnectCalls = 0
     var lastCloseRoom = false
     var sentEnvelopes: [WireEnvelope] = []
+    var foregroundCalls = 0
+    /// When set, `host(room:isPublic:)` reports a failure instead of coming up —
+    /// the shape of a room-creation request that never reached the relay.
+    var failsHosting: String?
 
     init(mode: MultiplayerMode) {
         self.mode = mode
@@ -42,7 +46,11 @@ final class FakeMatchTransport: MatchTransport {
         _ = isPublic
         self.room = room
         hosting = true
-        onEvent?(.ready)
+        if let failsHosting {
+            onEvent?(.failed(failsHosting))
+        } else {
+            onEvent?(.ready)
+        }
     }
 
     func join(room: DiscoveredMatchRoom) {
@@ -54,6 +62,12 @@ final class FakeMatchTransport: MatchTransport {
     }
 
     func reconnect() {}
+
+    func applicationDidBecomeActive() { foregroundCalls += 1 }
+
+    /// Push a transport event at the session under test without going through a
+    /// join, so outage handling can be exercised directly.
+    func emit(_ event: MatchTransportEvent) { onEvent?(event) }
 
     func send(_ envelope: WireEnvelope, to recipient: TransportRecipient) {
         sentEnvelopes.append(envelope)
