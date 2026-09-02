@@ -61,6 +61,7 @@ extension MatchSessionService {
     func scheduleGameBroadcast(after delay: TimeInterval, revision: Int, resetsTurnTimer: Bool = true) {
         animationBroadcastTask?.cancel()
         guard delay > 0 else {
+            startPendingMiningIfNeeded()
             if resetsTurnTimer { scheduleTurnTimer() }
             broadcastGame()
             scheduleBotTurnIfNeeded()
@@ -70,7 +71,18 @@ extension MatchSessionService {
             try? await Task.sleep(for: .seconds(delay))
             guard !Task.isCancelled else { return }
             await MainActor.run {
-                guard let self, self.authoritativeGame?.revision == revision else { return }
+                guard let self else { return }
+                // Resolved BEFORE the staleness guard, and unconditionally: a
+                // reconnect or a skipped seat bumps the revision on its own (see
+                // `GameRuleset.setConnection`), and bailing out with a plan still
+                // parked would strand `apply` behind its own dig freeze forever.
+                // `startPendingMiningIfNeeded` clears the plan either way and
+                // re-validates the state before opening anything.
+                //
+                // It also runs before the broadcast, so one snapshot carries both
+                // the bank losing the buried token and the dig window itself.
+                self.startPendingMiningIfNeeded()
+                guard self.authoritativeGame?.revision == revision else { return }
                 if resetsTurnTimer { self.scheduleTurnTimer() }
                 self.broadcastGame()
                 self.scheduleBotTurnIfNeeded()

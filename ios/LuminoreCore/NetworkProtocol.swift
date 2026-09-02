@@ -153,6 +153,19 @@ public enum NetworkMessage: Codable, Equatable, Sendable {
     /// presentational, so it is relayed immediately and never perturbs the
     /// authoritative game state or its versioning.
     case quickChat(QuickChatMessage)
+    /// Any peer → host, 5× a second during a 挖矿 window: how many times that
+    /// player tapped since their last report. Never touches the authoritative
+    /// snapshot — the host folds it into a running rock count instead.
+    case miningTap(MiningTapReport)
+    /// Host → clients, 5× a second: the authoritative rock count. Deliberately
+    /// tiny and outside the snapshot path, which is far too heavy for 5 Hz.
+    case miningProgress(MiningProgress)
+    /// Miner → host: the rock count when the window closed, from the device that
+    /// owns it. The host settles the token from this.
+    case miningOutcome(MiningOutcomeReport)
+    /// Miner → host: the tokens they chose to drop after digging up one they had
+    /// no room for.
+    case miningDiscard(MiningDiscard)
     /// A payload kind this build does not recognise, i.e. a peer running a newer
     /// version. Decoded rather than thrown so one unknown message cannot tear down
     /// the whole frame (which would surface as a mid-match error on the internet

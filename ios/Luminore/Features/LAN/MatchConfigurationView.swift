@@ -66,6 +66,11 @@ struct ConfigurationView: View {
                         isHost: session.isHost,
                         onUpdate: session.updateConfiguration
                     )
+                    MiningRulesSection(
+                        configuration: room.configuration,
+                        isHost: session.isHost,
+                        onUpdate: session.updateConfiguration
+                    )
                 }
                 if session.isHost {
                     Section {

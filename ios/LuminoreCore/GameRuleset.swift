@@ -351,13 +351,10 @@ private extension StandardRuleset {
     func finishGame(state: inout GameState) {
         state.status = .finished
         // 名次只看声望：同分即并列，发展卡数仅用于同分时的展示顺序。
-        let sorted = state.players.sorted {
-            if $0.prestige != $1.prestige { return $0.prestige > $1.prestige }
-            if $0.developmentCardCount != $1.developmentCardCount {
-                return $0.developmentCardCount < $1.developmentCardCount
-            }
-            return $0.nickname.localizedStandardCompare($1.nickname) == .orderedAscending
-        }
+        // 排序与名次都由 `Standings` 提供，好让局中的「最后一名」判定（挖矿）
+        // 与终局名次永远同一口径。
+        let sorted = Standings.sorted(state.players)
+        let ranks = Standings.ranks(sorted: sorted)
         let topPrestige = sorted.first?.prestige
         let winnerIDs = sorted.filter { $0.prestige == topPrestige }.map(\.id)
         let humanLoserCount = state.players.count {
@@ -369,19 +366,13 @@ private extension StandardRuleset {
                 state.players[index].medalCount += humanLoserCount
             }
         }
-        var previous: PlayerState?
-        var rank = 0
-        let standings = sorted.enumerated().map { offset, player in
-            if previous == nil || previous?.prestige != player.prestige {
-                rank = offset + 1
-            }
-            previous = player
-            return GameResult.Standing(
+        let standings = sorted.map { player in
+            GameResult.Standing(
                 playerID: player.id,
                 nickname: player.nickname,
                 prestige: player.prestige,
                 developmentCards: player.developmentCardCount,
-                rank: rank,
+                rank: ranks[player.id] ?? 1,
                 isWinner: winnerIDs.contains(player.id)
             )
         }

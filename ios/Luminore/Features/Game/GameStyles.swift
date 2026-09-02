@@ -31,7 +31,10 @@ extension GemColor {
         }
     }
 
-    var localizedKey: LocalizedStringKey {
+    /// Raw string key behind `localizedKey`. Runtime-composed text (accessibility
+    /// labels, banners) must resolve it through `AppLanguage.string(_:)` so it
+    /// honours the in-app language rather than the system one.
+    var localizedKeyName: String {
         switch self {
         case .diamond: "gem.diamond"
         case .sapphire: "gem.sapphire"
@@ -41,6 +44,10 @@ extension GemColor {
         case .gold: "gem.gold"
         }
     }
+
+    var localizedKey: LocalizedStringKey { LocalizedStringKey(localizedKeyName) }
+
+    var localizedName: String { AppLanguage.string(localizedKeyName) }
 
     var shortLocalizedKey: LocalizedStringKey {
         switch self {

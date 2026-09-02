@@ -43,8 +43,14 @@
         <key>UIApplicationSupportsMultipleScenes</key>
         <false/>
     </dict>
+    <!-- The system launch screen cannot animate, so it only paints the same flat
+         colour the SwiftUI splash starts from. That makes the handover from the
+         static launch image to `SplashView` seamless instead of a white flash. -->
     <key>UILaunchScreen</key>
-    <dict/>
+    <dict>
+        <key>UIColorName</key>
+        <string>LaunchBackground</string>
+    </dict>
     <key>UIRequiredDeviceCapabilities</key>
     <array>
         <string>arm64</string>

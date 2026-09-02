@@ -1,0 +1,15 @@
+{
+  "messageID": "99999999-9999-9999-9999-999999999999",
+  "payload": {
+    "miningProgress": {
+      "endsAt": 774316805,
+      "remaining": 18,
+      "sessionID": "88888888-8888-8888-8888-888888888888"
+    },
+    "type": "miningProgress"
+  },
+  "protocolVersion": 1,
+  "roomID": "22222222-2222-2222-2222-222222222222",
+  "senderID": "33333333-3333-3333-3333-333333333333",
+  "sequence": 14
+}

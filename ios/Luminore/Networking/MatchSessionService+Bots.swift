@@ -107,6 +107,8 @@ extension MatchSessionService {
     /// remains the current player across multiple invocations.
     func scheduleBotTurnIfNeeded() {
         guard isHost, !isPaused, !isOpeningTurnSelection else { return }
+        // A bot must not take its turn while a dig is freezing the table.
+        guard mining == nil, pendingMiningPlan == nil else { return }
         guard let state = authoritativeGame, state.status == .playing else { return }
         let currentID = state.currentPlayer.id
         guard let participant = room?.participants.first(where: { $0.id == currentID }),

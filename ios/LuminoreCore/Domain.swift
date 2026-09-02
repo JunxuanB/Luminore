@@ -90,6 +90,8 @@ public struct GameConfiguration: Codable, Equatable, Sendable {
     /// which has a fixed setup, but preserved across a mode round-trip so the
     /// host does not lose their tuning by peeking at another mode.
     public var customStandardRules: StandardCustomRules?
+    /// 挖矿 house rule. Off by default, and only ever consulted by `.standard`.
+    public var mining: MiningRules
 
     public init(
         mode: GameMode = .standard,
@@ -97,13 +99,15 @@ public struct GameConfiguration: Codable, Equatable, Sendable {
         turnDurationSeconds: Int? = 30,
         turnGracePeriodEnabled: Bool = true,
         affordableCardHighlightEnabled: Bool = true,
-        customStandardRules: StandardCustomRules? = nil
+        customStandardRules: StandardCustomRules? = nil,
+        mining: MiningRules = MiningRules()
     ) {
         self.mode = mode
         self.targetPrestige = min(max(targetPrestige, 10), 30)
         self.turnGracePeriodEnabled = turnGracePeriodEnabled
         self.affordableCardHighlightEnabled = affordableCardHighlightEnabled
         self.customStandardRules = customStandardRules
+        self.mining = mining
         if let turnDurationSeconds {
             self.turnDurationSeconds = min(max(turnDurationSeconds, 10), 120)
         } else {
@@ -134,6 +138,7 @@ public struct GameConfiguration: Codable, Equatable, Sendable {
         case turnGracePeriodEnabled
         case affordableCardHighlightEnabled
         case customStandardRules
+        case mining
     }
 
     public init(from decoder: Decoder) throws {
@@ -150,7 +155,8 @@ public struct GameConfiguration: Codable, Equatable, Sendable {
             customStandardRules: try container.decodeIfPresent(
                 StandardCustomRules.self,
                 forKey: .customStandardRules
-            )
+            ),
+            mining: try container.decodeIfPresent(MiningRules.self, forKey: .mining) ?? MiningRules()
         )
     }
 
@@ -162,6 +168,7 @@ public struct GameConfiguration: Codable, Equatable, Sendable {
         try container.encode(turnGracePeriodEnabled, forKey: .turnGracePeriodEnabled)
         try container.encode(affordableCardHighlightEnabled, forKey: .affordableCardHighlightEnabled)
         try container.encodeIfPresent(customStandardRules, forKey: .customStandardRules)
+        try container.encode(mining, forKey: .mining)
     }
 }
 
@@ -485,6 +492,10 @@ public struct ClientGameSnapshot: Codable, Equatable, Sendable {
     public let revision: Int
     /// Authoritative pause state; `nil` when the match is running.
     public let pause: MatchPause?
+    /// Open 挖矿 window; `nil` when nobody is digging. Like `pause`, this is
+    /// reconciled from the snapshot on every frame rather than from one-shot
+    /// control messages, so it self-heals across a flaky reconnect.
+    public let mining: MiningSnapshot?
     public let duel: DuelClientSnapshot?
 
     public init(
@@ -505,6 +516,7 @@ public struct ClientGameSnapshot: Codable, Equatable, Sendable {
         result: GameResult?,
         revision: Int,
         pause: MatchPause? = nil,
+        mining: MiningSnapshot? = nil,
         duel: DuelClientSnapshot? = nil
     ) {
         self.gameID = gameID
@@ -524,6 +536,7 @@ public struct ClientGameSnapshot: Codable, Equatable, Sendable {
         self.result = result
         self.revision = revision
         self.pause = pause
+        self.mining = mining
         self.duel = duel
     }
 
@@ -546,6 +559,7 @@ public struct ClientGameSnapshot: Codable, Equatable, Sendable {
         result = try container.decodeIfPresent(GameResult.self, forKey: .result)
         revision = try container.decode(Int.self, forKey: .revision)
         pause = try container.decodeIfPresent(MatchPause.self, forKey: .pause)
+        mining = try container.decodeIfPresent(MiningSnapshot.self, forKey: .mining)
         duel = try container.decodeIfPresent(DuelClientSnapshot.self, forKey: .duel)
     }
 }
@@ -555,7 +569,8 @@ public extension GameState {
         for playerID: UUID,
         turnDeadline: Date? = nil,
         openingTurnSelection: OpeningTurnSelection? = nil,
-        pause: MatchPause? = nil
+        pause: MatchPause? = nil,
+        mining: MiningSnapshot? = nil
     ) -> ClientGameSnapshot {
         let duelSnapshot: DuelClientSnapshot? = duel.map { duel in
             DuelClientSnapshot(
@@ -620,6 +635,7 @@ public extension GameState {
             result: result,
             revision: revision,
             pause: pause,
+            mining: mining,
             duel: duelSnapshot
         )
     }

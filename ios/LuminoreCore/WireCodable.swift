@@ -21,6 +21,10 @@ private enum WireKeys: String, CodingKey {
     case message
     case paused
     case quickChat
+    case miningTap
+    case miningProgress
+    case miningOutcome
+    case miningDiscard
 }
 
 extension CardSource {
@@ -127,6 +131,10 @@ extension NetworkMessage {
         case error
         case ping
         case quickChat
+        case miningTap
+        case miningProgress
+        case miningOutcome
+        case miningDiscard
         case unknown
     }
 
@@ -155,6 +163,13 @@ extension NetworkMessage {
         case .error: self = .error(try container.decode(String.self, forKey: .message))
         case .ping: self = .ping
         case .quickChat: self = .quickChat(try container.decode(QuickChatMessage.self, forKey: .quickChat))
+        case .miningTap: self = .miningTap(try container.decode(MiningTapReport.self, forKey: .miningTap))
+        case .miningProgress:
+            self = .miningProgress(try container.decode(MiningProgress.self, forKey: .miningProgress))
+        case .miningOutcome:
+            self = .miningOutcome(try container.decode(MiningOutcomeReport.self, forKey: .miningOutcome))
+        case .miningDiscard:
+            self = .miningDiscard(try container.decode(MiningDiscard.self, forKey: .miningDiscard))
         case .unknown: self = .unknown
         }
     }
@@ -207,6 +222,18 @@ extension NetworkMessage {
         case let .quickChat(message):
             try container.encode(Kind.quickChat, forKey: .type)
             try container.encode(message, forKey: .quickChat)
+        case let .miningTap(report):
+            try container.encode(Kind.miningTap, forKey: .type)
+            try container.encode(report, forKey: .miningTap)
+        case let .miningProgress(progress):
+            try container.encode(Kind.miningProgress, forKey: .type)
+            try container.encode(progress, forKey: .miningProgress)
+        case let .miningOutcome(outcome):
+            try container.encode(Kind.miningOutcome, forKey: .type)
+            try container.encode(outcome, forKey: .miningOutcome)
+        case let .miningDiscard(discard):
+            try container.encode(Kind.miningDiscard, forKey: .type)
+            try container.encode(discard, forKey: .miningDiscard)
         case .unknown:
             try container.encode(Kind.unknown, forKey: .type)
         }

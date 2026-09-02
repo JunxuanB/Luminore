@@ -1085,6 +1085,119 @@
         }
       }
     },
+    "config.mining.enabled" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable mining"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启挖矿玩法"
+          }
+        }
+      }
+    },
+    "config.mining.footer.off" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A tap-race mini-game that can fire after a turn ends. Standard mode only."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一个在玩家回合结束后可能触发的点击对抗小游戏，仅限普通模式。"
+          }
+        }
+      }
+    },
+    "config.mining.footer.on" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After a turn ends, a dig may begin: the chosen miner has 5 seconds to unearth a token from the pool while everyone else piles rocks back on. At most one last-place dig per round."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "玩家回合结束后可能触发挖矿：被选中的矿工有 5 秒时间把公共池里的一颗宝石挖出来，其他所有玩家则往上添加石头。「最后一名」每轮最多触发一次。"
+          }
+        }
+      }
+    },
+    "config.mining.lastPlaceChance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last-place trigger chance"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最后一名触发概率"
+          }
+        }
+      }
+    },
+    "config.mining.percent" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@"
+          }
+        }
+      }
+    },
+    "config.mining.sameColorChance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Same-colour trigger chance"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "获取相同颜色触发概率"
+          }
+        }
+      }
+    },
+    "config.mining.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mining"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "挖矿玩法"
+          }
+        }
+      }
+    },
     "config.mode" : {
       "localizations" : {
         "en" : {
@@ -5058,6 +5171,172 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "勋章收藏墙"
+          }
+        }
+      }
+    },
+    "mining.a11y.pile" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rock pile hiding a %1$@ token, %2$lld rocks left. Double-tap to hit it."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "石堆，下面埋着一颗%1$@，还剩 %2$lld 块石头。双击可敲击。"
+          }
+        }
+      }
+    },
+    "mining.discard.prompt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're over the token limit — choose what to return."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的令牌超出上限，请选择要退回的令牌。"
+          }
+        }
+      }
+    },
+    "mining.discard.waiting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for the miner to return some tokens…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在等待矿工退回多余的令牌…"
+          }
+        }
+      }
+    },
+    "mining.hint.miner" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap fast to dig the token out before time runs out."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快速点击，在时间结束前把宝石挖出来。"
+          }
+        }
+      }
+    },
+    "mining.hint.other" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to drop more rocks and stop %1$@ from digging it out."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点击扔下更多石头，别让 %1$@ 挖到宝石。"
+          }
+        }
+      }
+    },
+    "mining.progress" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cleared %1$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已挖开 %1$@"
+          }
+        }
+      }
+    },
+    "mining.result.failure" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time's up — %1$@ came away empty-handed."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时间到，%1$@ 什么也没挖到。"
+          }
+        }
+      }
+    },
+    "mining.result.success" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ dug out the %2$@!"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ 挖到了%2$@！"
+          }
+        }
+      }
+    },
+    "mining.role.miner" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're the miner!"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你是矿工！"
+          }
+        }
+      }
+    },
+    "mining.role.other" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bury the pile!"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快埋住石堆！"
           }
         }
       }

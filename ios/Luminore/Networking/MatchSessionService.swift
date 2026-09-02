@@ -37,6 +37,13 @@ final class MatchSessionService: ObservableObject {
     /// computed on the host. `nil` means the match is running. Drives which cover
     /// (host pause vs. disconnect-wait) is shown. See `isPaused`.
     @Published var matchPause: MatchPause?
+    /// Open 挖矿 window; `nil` when nobody is digging. Host-owned and mirrored by
+    /// clients straight from the game snapshot. See `MatchSessionService+Mining`.
+    @Published var mining: MiningSnapshot?
+    /// Rocks left on the pile *as this device renders it*: locally predicted on
+    /// every tap, then converged onto the host's number 5× a second. Deliberately
+    /// a nested observable rather than a `@Published` here — see `MiningPileModel`.
+    let miningPile = MiningPileModel()
 
     /// Convenience: any pause (host or disconnect) is active.
     var isPaused: Bool { matchPause != nil }
@@ -97,6 +104,40 @@ final class MatchSessionService: ObservableObject {
     var hostPaused = false
     var disconnectGraceUntil: Date?
     var disconnectGraceTask: Task<Void, Never>?
+    /// 挖矿 device-side state. The rock count itself lives in `miningPile`; the
+    /// *authority* for it is the miner's device, not necessarily this one — see
+    /// `MatchSessionService+Mining`. `miningKnownRemaining` is the host's copy of
+    /// the last count the miner published, used only as a fallback verdict if the
+    /// miner never reports one.
+    var miningKnownRemaining = MiningBalance.pileTotal
+    var pendingMiningPlan: MiningPlan?
+    var pendingMiningTask: Task<Void, Never>?
+    /// Thrown rocks made on this device that the miner has not been told about yet.
+    var miningLocalTaps = 0
+    /// Thrown rocks received but not yet folded in.
+    var miningInboundTaps = 0
+    /// Host: fractional carry so a bot's taps-per-second survives 5 Hz rounding.
+    var miningBotCredit: [UUID: Double] = [:]
+    /// Host: each thrower's remaining throw budget and when it was last spent —
+    /// the token bucket behind `MiningBalance.throwCooldown`.
+    var miningThrowBudget: [UUID: Double] = [:]
+    var miningThrowStamp: [UUID: Date] = [:]
+    /// This device's own next permitted throw, mirroring the host's cooldown so
+    /// the heap on screen matches what actually lands.
+    var miningNextThrowAt = Date.distantPast
+    /// Miner's device: publishes the count and closes the window.
+    var miningTickTask: Task<Void, Never>?
+    /// Host: drives every bot's digging or throwing.
+    var miningBotTask: Task<Void, Never>?
+    /// Host: settles the dig if the miner's own verdict never arrives.
+    var miningFallbackTask: Task<Void, Never>?
+    var miningFlushTask: Task<Void, Never>?
+    var miningFinishTask: Task<Void, Never>?
+    var miningDiscardTask: Task<Void, Never>?
+    /// Round in which a last-place dig already fired; at most one per round.
+    var lastMiningRound: Int?
+    /// Injectable for tests. Returns a value in `0..<1`.
+    var miningRandom: () -> Double = { Double.random(in: 0 ..< 1) }
     /// How long the whole match freezes waiting for a dropped player to return
     /// before play continues (skipping seats still absent).
     let disconnectGraceDuration: TimeInterval = 15
@@ -251,6 +292,7 @@ final class MatchSessionService: ObservableObject {
                 seed: UInt64.random(in: .min ... .max)
             )
             openingTurnSelection = OpeningTurnSelection()
+            lastMiningRound = nil
             room.participants = connected
             room.descriptor.playerCount = connected.count
             room.descriptor.stage = .playing
@@ -277,6 +319,8 @@ final class MatchSessionService: ObservableObject {
 
     func returnToConfiguration() {
         guard isHost, var room else { return }
+        abortMining()
+        lastMiningRound = nil
         authoritativeGame = nil
         game = nil
         openingTurnTask?.cancel()
@@ -306,6 +350,8 @@ final class MatchSessionService: ObservableObject {
     func leave() {
         isLeaving = true
         backgroundGuard.end()
+        abortMining()
+        lastMiningRound = nil
         turnTask?.cancel()
         openingTurnTask?.cancel()
         botTask?.cancel()
@@ -345,6 +391,9 @@ final class MatchSessionService: ObservableObject {
     func pauseGame() {
         guard isHost, phase == .game, !isPaused, !isOpeningTurnSelection else { return }
         hostPaused = true
+        // A pause outranks a dig: settle it before the covered snapshot goes out,
+        // otherwise the window would tick away behind the pause cover.
+        abortMining()
         turnTask?.cancel()
         botTask?.cancel()
         turnDeadline = nil

@@ -23,7 +23,11 @@ extension MatchSessionService {
     /// session ended, and tear down. Loadable later from the configuration screen
     /// via `loadSavedGame(_:assignment:)`.
     func saveAndEndMatch(context: ModelContext) {
-        guard isHost, let state = authoritativeGame, let room else { return }
+        guard isHost else { return }
+        // Settle any open dig before the snapshot is written, so the buried token
+        // is back in the pool and the save never replays mid-window.
+        abortMining()
+        guard let state = authoritativeGame, let room else { return }
         do {
             // Seats are keyed by position: `currentPlayerIndex` and
             // `startingPlayerIndex` are positional, so the roster must be written in
@@ -77,6 +81,8 @@ extension MatchSessionService {
     /// configuration screen was showing.
     func loadSavedGame(_ record: GameSaveRecord, assignment: [UUID: UUID]) {
         guard isHost, var room else { return }
+        abortMining()
+        lastMiningRound = nil
         let connected = room.participants.filter(\.isConnected)
         let state: GameState
         let seating: [Participant]

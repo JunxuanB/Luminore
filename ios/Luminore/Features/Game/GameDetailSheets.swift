@@ -219,6 +219,9 @@ struct ReservedCardsSheet: View {
 struct ReturnTokensView: View {
     let available: [GemColor: Int]
     let required: Int
+    /// The 挖矿 over-limit discard has no way back — the match is frozen until
+    /// the miner chooses — so it hides Cancel rather than offering a dead end.
+    var allowsCancel = true
     let onConfirm: ([GemColor: Int]) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var returning: [GemColor: Int] = [:]
@@ -242,8 +245,10 @@ struct ReturnTokensView: View {
             }
             .navigationTitle("game.return.title")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("common.cancel") { dismiss() }
+                if allowsCancel {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("common.cancel") { dismiss() }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("common.confirm") {

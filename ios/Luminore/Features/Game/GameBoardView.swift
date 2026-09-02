@@ -33,6 +33,19 @@ struct GameBoardView: View {
         !session.isOpeningTurnSelection && snapshot?.currentPlayerID == session.localID
     }
 
+    /// Read-only: the sheet closes when the host clears the dig, never because
+    /// the player swiped it away — the match is frozen until they discard, and
+    /// the host's timeout is the only other way out.
+    private var miningDiscardPresented: Binding<Bool> {
+        Binding(
+            get: {
+                guard let dig = session.mining else { return false }
+                return dig.phase == .awaitingDiscard && dig.minerID == session.localID
+            },
+            set: { _ in }
+        )
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             GameNavigationBar(
@@ -185,6 +198,7 @@ struct GameBoardView: View {
         // Sits above the (non-interactive) flight and border layers, and below the
         // roulette and pause covers so those hide it without any zIndex juggling.
         .quickChatOverlay(session: session, isEnabled: tutorial == nil, bottomInset: 92)
+        .miningOverlay(session: session, isEnabled: tutorial == nil)
         .overlay {
             if let snapshot, let selection = session.openingTurnSelection {
                 OpeningTurnRouletteView(
@@ -239,6 +253,18 @@ struct GameBoardView: View {
                     session.submit(.reserve(source: source, returning: returns))
                 }
                 selectedGems = [:]
+            }
+        }
+        .sheet(isPresented: miningDiscardPresented) {
+            if let dig = session.mining, let player = localPlayer {
+                ReturnTokensView(
+                    available: player.tokens,
+                    required: dig.discardCount,
+                    allowsCancel: false
+                ) { returns in
+                    session.submitMiningDiscard(returns)
+                }
+                .interactiveDismissDisabled()
             }
         }
         .sheet(item: $selectedCard) { selection in

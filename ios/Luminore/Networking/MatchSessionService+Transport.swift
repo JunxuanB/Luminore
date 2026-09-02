@@ -106,6 +106,18 @@ extension MatchSessionService {
             apply(action, from: envelope.senderID, allowsPass: true)
         case let .quickChat(message):
             receiveQuickChatAsHost(message, from: peer, senderID: envelope.senderID)
+        case let .miningTap(report):
+            guard peerParticipants[peer] == envelope.senderID else { return }
+            routeMiningTap(report, from: envelope.senderID)
+        case let .miningProgress(progress):
+            guard peerParticipants[peer] == envelope.senderID else { return }
+            receiveMiningProgress(progress, from: envelope.senderID)
+        case let .miningOutcome(report):
+            guard peerParticipants[peer] == envelope.senderID else { return }
+            receiveMiningOutcome(report, from: envelope.senderID)
+        case let .miningDiscard(discard):
+            guard peerParticipants[peer] == envelope.senderID else { return }
+            applyMiningDiscard(discard, from: envelope.senderID)
         case .leave:
             peerStopped(peer, error: nil)
         default:
@@ -147,6 +159,8 @@ extension MatchSessionService {
             // The snapshot is the single source of truth for pause, so a lost
             // setPaused control message can never leave a client stuck paused.
             matchPause = snapshot.pause
+            // Same self-healing reconciliation as pause, for the same reason.
+            syncMining(from: snapshot)
             receiveOpeningTurnSelection(snapshot.openingTurnSelection)
             if snapshot.status == .finished {
                 phase = .results
@@ -157,6 +171,11 @@ extension MatchSessionService {
             }
         case let .gameAnimation(animation):
             gameAnimationEvent = animation
+        case let .miningProgress(progress):
+            receiveMiningProgress(progress, from: envelope.senderID)
+        case let .miningTap(report):
+            // Relayed by the host: rocks thrown at this device's dig.
+            receiveMiningTap(report, from: envelope.senderID)
         case let .quickChat(message):
             // Relayed by the host, so the envelope's senderID is the host's and the
             // author rides in the payload. Ignore our own echo if it ever returns.
@@ -164,6 +183,7 @@ extension MatchSessionService {
             presentQuickChat(message)
         case .returnToConfiguration:
             game = nil
+            abortMining()
             openingTurnTask?.cancel()
             openingTurnSelection = nil
             clearPauseState()
@@ -325,6 +345,9 @@ extension MatchSessionService {
     }
 
     func apply(_ action: GameAction, from playerID: UUID, allowsPass: Bool) {
+        // A dig freezes the whole table: no move lands while one is open, nor in
+        // the animation beat between deciding on one and opening it.
+        guard mining == nil, pendingMiningPlan == nil else { return }
         guard !isOpeningTurnSelection, var state = authoritativeGame else { return }
         if case .pass = action, !allowsPass { return }
         do {
@@ -367,6 +390,9 @@ extension MatchSessionService {
             }
             gameAnimationEvent = animation
             broadcast(.gameAnimation(animation))
+            // Decided now, opened later: `scheduleGameBroadcast` starts the dig
+            // once the triggering action has finished animating.
+            planMiningIfNeeded(after: action, actor: playerID, before: previousState, after: state)
             scheduleGameBroadcast(
                 after: animation.snapshotDelay,
                 revision: state.revision,
@@ -392,7 +418,8 @@ extension MatchSessionService {
             for: localID,
             turnDeadline: turnDeadline,
             openingTurnSelection: openingTurnSelection,
-            pause: matchPause
+            pause: matchPause,
+            mining: mining
         )
         phase = state.status == .finished ? .results : .game
         for playerID in participantPeers.keys { sendGame(to: playerID) }
@@ -404,7 +431,8 @@ extension MatchSessionService {
             for: playerID,
             turnDeadline: turnDeadline,
             openingTurnSelection: openingTurnSelection,
-            pause: matchPause
+            pause: matchPause,
+            mining: mining
         )), to: peer)
     }
 
@@ -431,6 +459,7 @@ extension MatchSessionService {
     func scheduleTurnTimer() {
         turnTask?.cancel()
         guard isHost, !isPaused, !isOpeningTurnSelection,
+              mining == nil, pendingMiningPlan == nil,
               let state = authoritativeGame, state.status == .playing,
               let seconds = state.configuration.turnDurationSeconds
         else {
@@ -575,6 +604,8 @@ extension MatchSessionService {
     func beginDisconnectPause() {
         guard isHost, phase == .game, authoritativeGame?.status == .playing, !hostPaused else { return }
         guard hasDisconnectedInGamePlayers else { return }
+        // Settle any open dig first — it must not tick on behind the freeze cover.
+        abortMining()
         disconnectGraceUntil = Date().addingTimeInterval(disconnectGraceDuration)
         turnTask?.cancel()
         turnDeadline = nil
