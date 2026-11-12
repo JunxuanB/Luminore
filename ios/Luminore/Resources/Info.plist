@@ -20,6 +20,11 @@
     <string>1.0</string>
     <key>CFBundleVersion</key>
     <string>$(CURRENT_PROJECT_VERSION)</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>zh-Hans</string>
+    </array>
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>ITSAppUsesNonExemptEncryption</key>
@@ -58,6 +63,15 @@
     <key>UISupportedInterfaceOrientations</key>
     <array>
         <string>UIInterfaceOrientationPortrait</string>
+    </array>
+    <!-- iPhone stays portrait-only; iPad rotates freely and is mostly used in
+         landscape. -->
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
 </dict>
 </plist>

@@ -111,8 +111,15 @@ extension MatchSessionService {
         guard mining == nil, pendingMiningPlan == nil else { return }
         guard let state = authoritativeGame, state.status == .playing else { return }
         let currentID = state.currentPlayer.id
-        guard let participant = room?.participants.first(where: { $0.id == currentID }),
-              participant.kind == .bot else { return }
+        guard let participant = room?.participants.first(where: { $0.id == currentID }) else { return }
+        var isAutoplayed = participant.kind == .bot
+        #if DEBUG
+        // Screenshot scenes let the AI play the local seat for a few moves.
+        if currentID == localID, DemoScene.current != nil, DemoScene.autoplayMovesLeft > 0 {
+            isAutoplayed = true
+        }
+        #endif
+        guard isAutoplayed else { return }
 
         let difficulty = participant.difficulty ?? .normal
         let mode = state.configuration.mode
@@ -154,6 +161,9 @@ extension MatchSessionService {
                    self.tutorialOpponentActions.first == action {
                     self.tutorialOpponentActions.removeFirst()
                 }
+                #if DEBUG
+                if currentID == self.localID { DemoScene.autoplayMovesLeft -= 1 }
+                #endif
                 self.apply(action, from: currentID, allowsPass: true)
             }
         }

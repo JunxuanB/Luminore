@@ -49,17 +49,21 @@ struct MultiplayerFlowView: View {
             ConfigurationView(session: session, profile: profile)
         case .game:
             if session.game?.configuration.mode == .duel {
-                DuelGameBoardView(
-                    session: session,
-                    onExit: exitMatch,
-                    onSaveAndSuspend: { session.saveAndEndMatch(context: modelContext) }
-                )
+                PhoneCanvas {
+                    DuelGameBoardView(
+                        session: session,
+                        onExit: exitMatch,
+                        onSaveAndSuspend: { session.saveAndEndMatch(context: modelContext) }
+                    )
+                }
             } else {
-                GameBoardView(
-                    session: session,
-                    onExit: exitMatch,
-                    onSaveAndSuspend: { session.saveAndEndMatch(context: modelContext) }
-                )
+                PhoneCanvas {
+                    GameBoardView(
+                        session: session,
+                        onExit: exitMatch,
+                        onSaveAndSuspend: { session.saveAndEndMatch(context: modelContext) }
+                    )
+                }
             }
         case .results:
             ResultView(session: session)
@@ -86,6 +90,7 @@ struct MultiplayerFlowView: View {
 
     private func withChrome<V: View>(_ content: V) -> some View {
         content
+            .groupedScreenBackground()
             .navigationBarBackButtonHidden(session.phase != .menu)
             .toolbar {
                 if session.phase != .menu {
@@ -153,6 +158,9 @@ struct MultiplayerFlowView: View {
                 presence.configure(modelContext)
                 session.updateNickname(profile.nickname)
                 session.updateMedalCount(medalCount)
+                #if DEBUG
+                DemoScene.current?.bootstrap(session)
+                #endif
             }
             .onChange(of: session.phase) { old, new in handlePhaseChange(from: old, to: new) }
             .onChange(of: session.game?.status) { _, _ in recordOutcomeIfFinished() }

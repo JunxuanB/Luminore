@@ -141,7 +141,6 @@ private struct MatchHistoryRow: View {
     private var gameModeKey: LocalizedStringKey {
         switch record.gameMode {
         case .standard: "config.mode.standard"
-        case .silkRoad: "config.mode.silkRoad"
         case .duel: "config.mode.duel"
         }
     }
@@ -209,7 +208,6 @@ private struct MatchHistoryDetailView: View {
     private var gameModeKey: LocalizedStringKey {
         switch record.gameMode {
         case .standard: "config.mode.standard"
-        case .silkRoad: "config.mode.silkRoad"
         case .duel: "config.mode.duel"
         }
     }

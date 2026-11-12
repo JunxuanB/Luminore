@@ -184,6 +184,28 @@ final class MiningSessionTests: XCTestCase {
         )
     }
 
+    /// Regression: opening the window bumps the authoritative revision, so the
+    /// delayed broadcast's staleness guard used to reject the very snapshot that
+    /// announces the dig. Every animated trigger — i.e. every 拿两颗同色 dig —
+    /// then existed only on the host: the miner's own device showed no overlay,
+    /// never tapped, and always lost on the host's fallback verdict.
+    func testAnAnimatedTriggerBroadcastsTheDigToTheMiner() async throws {
+        let (host, client) = try startedMatch(sameColorChance: 100, lastPlaceChance: 0)
+        // Pin the dig on the joined seat: the one that was left blind.
+        giveTurn(to: client.localID, in: host)
+        host.apply(.take(tokens: [.diamond: 2], returning: [:]), from: client.localID, allowsPass: true)
+        XCTAssertNotNil(host.pendingMiningPlan, "parked behind the take animation")
+
+        // Past `.take`'s snapshot delay but well short of the watchdog, so this
+        // exercises the ordinary broadcast path rather than the safety net.
+        try await Task.sleep(for: .seconds(1))
+
+        let session = try XCTUnwrap(host.mining)
+        XCTAssertEqual(session.minerID, client.localID)
+        XCTAssertEqual(client.mining, session, "the miner's own device must see its dig")
+        XCTAssertEqual(client.game?.mining, session)
+    }
+
     // MARK: - Resolution
 
     func testDiggingOutTheTokenHandsItToTheMinerAndResumesPlay() throws {

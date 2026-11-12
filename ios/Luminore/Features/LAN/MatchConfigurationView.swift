@@ -11,7 +11,6 @@ struct ConfigurationView: View {
             if let room = session.room {
                 Section("config.mode") {
                     modeRow("config.mode.standard", mode: .standard, enabled: true, configuration: room.configuration)
-                    modeRow("config.mode.silkRoad", mode: .silkRoad, enabled: false, configuration: room.configuration)
                     modeRow(
                         "config.mode.duel",
                         mode: .duel,
@@ -112,7 +111,7 @@ struct ConfigurationView: View {
                 Text(title).foregroundStyle(.primary)
                 Spacer()
                 if !enabled {
-                    Text(mode == .duel ? "config.duel.requiresTwo" : "common.comingSoon")
+                    Text("config.duel.requiresTwo")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

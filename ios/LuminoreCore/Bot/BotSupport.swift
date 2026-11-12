@@ -17,7 +17,7 @@ public protocol BotController: Sendable {
 public enum BotFactory {
     public static func make(for mode: GameMode) -> BotController {
         switch mode {
-        case .standard, .silkRoad: return StandardBot()
+        case .standard: return StandardBot()
         case .duel: return DuelBot()
         }
     }

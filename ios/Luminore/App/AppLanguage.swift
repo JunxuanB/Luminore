@@ -1,4 +1,5 @@
 import Foundation
+import LuminoreCore
 
 /// Runtime string lookups that honour the in-app language override.
 ///
@@ -36,6 +37,23 @@ enum AppLanguage {
     /// `NSLocalizedString`'s behaviour).
     static func string(_ key: String) -> String {
         bundle.localizedString(forKey: key, value: nil, table: nil)
+    }
+
+    /// Message for an error `code` that came off the wire or out of the rules
+    /// engine. Codes without a catalog entry fall back to a generic sentence
+    /// rather than showing a raw identifier like `room_connection_limit`.
+    static func errorMessage(_ code: String) -> String {
+        let value = string(code)
+        let looksLikeCode = code.range(of: "^[A-Za-z0-9_.]+$", options: .regularExpression) != nil
+        guard value == code, looksLikeCode else { return value }
+        return string("error.generic %@", code)
+    }
+
+    /// Message for a thrown error: rule violations by their catalog code,
+    /// everything else by its own description.
+    static func errorMessage(for error: Error) -> String {
+        if let rule = error as? GameRuleError { return string(rule.code) }
+        return error.localizedDescription
     }
 
     /// Localized format string filled in with `arguments`.

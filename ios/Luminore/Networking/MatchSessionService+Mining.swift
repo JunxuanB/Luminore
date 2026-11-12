@@ -157,8 +157,12 @@ extension MatchSessionService {
     /// Opens the dig window. Called from `scheduleGameBroadcast` immediately
     /// before `broadcastGame()`, so a single snapshot carries both "the bank lost
     /// a token" and "a dig has begun" — clients never see one without the other.
-    func startPendingMiningIfNeeded() {
-        guard isHost, let plan = pendingMiningPlan else { return }
+    ///
+    /// Returns `true` when a window actually opened, so the caller knows the
+    /// authoritative revision moved underneath it and a broadcast is mandatory.
+    @discardableResult
+    func startPendingMiningIfNeeded() -> Bool {
+        guard isHost, let plan = pendingMiningPlan else { return false }
         pendingMiningPlan = nil
         pendingMiningTask?.cancel()
         pendingMiningTask = nil
@@ -167,7 +171,7 @@ extension MatchSessionService {
               state.status == .playing,
               !isPaused,
               state.bank[plan.gem, default: 0] > 0
-        else { return }
+        else { return false }
 
         // The prize really leaves the pool for the duration: players can see the
         // bank drop, and a failed dig visibly puts it back.
@@ -189,6 +193,7 @@ extension MatchSessionService {
         turnTask?.cancel()
         turnDeadline = nil
         startMiningFallback(session)
+        return true
     }
 
     /// Set up whichever tickers this device is responsible for. Runs on the host

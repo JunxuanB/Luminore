@@ -27,6 +27,11 @@ public enum GameRuleError: Error, Equatable, LocalizedError, Sendable {
     case invalidPayment
     case invalidNoble
 
+    /// Stable identifier for the app's string catalog (`rule.invalidAction`, …).
+    /// The core module has no access to the in-app language setting, so the app
+    /// localizes by this code; hosts also send it to peers instead of prose.
+    public var code: String { "rule.\(self)" }
+
     public var errorDescription: String? {
         switch self {
         case .unsupportedMode: "The selected mode is not available."

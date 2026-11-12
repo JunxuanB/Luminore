@@ -49,6 +49,7 @@ struct ResultView: View {
                     }
                 }
                 .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
             if session.isHost {
                 Button("result.rematch") { session.returnToConfiguration() }

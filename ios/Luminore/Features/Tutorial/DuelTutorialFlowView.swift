@@ -42,12 +42,14 @@ struct DuelTutorialFlowView: View {
             } else {
                 switch session.phase {
                 case .game:
-                    DuelGameBoardView(
-                        session: session,
-                        tutorial: controller,
-                        onExit: exit,
-                        onSaveAndSuspend: {}
-                    )
+                    PhoneCanvas {
+                        DuelGameBoardView(
+                            session: session,
+                            tutorial: controller,
+                            onExit: exit,
+                            onSaveAndSuspend: {}
+                        )
+                    }
                 case .results:
                     TutorialCompletionView(onDone: exit)
                 default:
@@ -55,7 +57,8 @@ struct DuelTutorialFlowView: View {
                 }
             }
         }
-        .navigationBarBackButtonHidden(!showIntro)
+        .groupedScreenBackground()
+        .navigationBarBackButtonHidden(true)
         .onChange(of: controller.phase) { _, phase in
             if phase == .freePlay { session.releaseTutorialOpponent() }
         }

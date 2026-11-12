@@ -7,6 +7,7 @@ struct GameBoardView: View {
     let onExit: () -> Void
     let onSaveAndSuspend: () -> Void
 
+    @Environment(\.isWideBoard) private var isWideBoard
     @State private var opponentIndex = 0
     @State private var selectedGems: [GemColor: Int] = [:]
     @State private var pendingReturn: PendingReturn?
@@ -47,114 +48,18 @@ struct GameBoardView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            GameNavigationBar(
-                deadline: session.turnDeadline,
-                hasTimer: snapshot?.configuration.turnDurationSeconds != nil,
-                gracePeriodEnabled: snapshot?.configuration.turnGracePeriodEnabled == true,
-                canPause: session.isHost && !session.isPaused && !session.isOpeningTurnSelection && tutorial == nil,
-                onPause: { session.pauseGame() },
-                onExit: { isShowingExitConfirmation = true }
-            )
-
-            if let player = localPlayer, let target = snapshot?.configuration.targetPrestige {
-                VictoryProgressHeader(current: player.prestige, target: target)
-            }
-
-            Divider()
-
-            GeometryReader { proxy in
-                let roomy = proxy.size.height >= 430
-
-                if let snapshot, let player = localPlayer {
-                    VStack(spacing: roomy ? 10 : 6) {
-                        if !opponents(in: snapshot).isEmpty {
-                            OpponentCarousel(
-                                opponents: opponents(in: snapshot),
-                                currentPlayerID: snapshot.currentPlayerID,
-                                reserveLimit: snapshot.configuration.standardReserveLimit,
-                                opponentIndex: $opponentIndex,
-                                onOpenReservedCards: openOpponentReservedCards
-                            )
-                        }
-
-                        GemBankSection(
-                            bank: snapshot.bank,
-                            isLocalTurn: isLocalTurn,
-                            selectableGems: tutorialGuide.selectableGems,
-                            canTakeSelection: tutorialGuide.canTakeSelection,
-                            canPass: tutorialGuide.canPass,
-                            selectedGems: $selectedGems,
-                            onToggle: { toggleGem($0, bank: snapshot.bank) },
-                            onTake: { prepareTake(player: player) },
-                            onPass: {
-                                guard activeTutorialInteraction == nil else { return }
-                                isShowingPassConfirmation = true
-                            }
-                        )
-                        .padding(.vertical, roomy ? 2 : 0)
-
-                        NobleSection(
-                            nobles: snapshot.availableNobles,
-                            selectableNobleIDs: tutorialGuide.selectableNobleIDs,
-                            onSelect: { selectedNoble = $0 }
-                        )
-                        .padding(.vertical, roomy ? 2 : 0)
-
-                        MarketSection(
-                            snapshot: snapshot,
-                            player: player,
-                            isLocalTurn: isLocalTurn,
-                            selectableCardIDs: tutorialGuide.selectableCardIDs,
-                            canReserveDeck: tutorial == nil || tutorial?.phase == .freePlay,
-                            onSelectCard: { card, source in
-                                guard tutorialGuide.allowsCard(card.id) else { return }
-                                selectedCard = SelectedCard(card: card, source: source)
-                            },
-                            onReserveDeck: {
-                                guard activeTutorialInteraction == nil else { return }
-                                prepareReserve(.deck(tier: $0), card: nil, player: player, bank: snapshot.bank)
-                            }
-                        )
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, roomy ? 9 : 5)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                }
-            }
-            .background(Color(.systemGroupedBackground))
-
-            if let snapshot, let player = localPlayer {
-                PlayerInventoryBar(
-                    player: player,
-                    reservedCardCount: snapshot.localReservedCards.count,
+        HStack(spacing: 0) {
+            if isWideBoard, let snapshot, !opponents(in: snapshot).isEmpty {
+                OpponentRoster(
+                    opponents: opponents(in: snapshot),
+                    currentPlayerID: snapshot.currentPlayerID,
                     reserveLimit: snapshot.configuration.standardReserveLimit,
-                    isCurrentPlayer: isLocalTurn,
-                    deadline: session.turnDeadline,
-                    turnDurationSeconds: snapshot.configuration.turnDurationSeconds,
-                    onOpenReservedCards: {
-                        guard activeTutorialInteraction == nil else { return }
-                        reservedSheet = ReservedCardsSheetRequest(
-                            title: "game.reserved.title",
-                            cards: snapshot.localReservedCards,
-                            cardCount: snapshot.localReservedCards.count,
-                            purchasableCardIDs: isLocalTurn
-                                ? Set(snapshot.localReservedCards.filter { canPurchase($0, player: player) }.map(\.id))
-                                : []
-                        )
-                    }
+                    onOpenReservedCards: openOpponentReservedCards
                 )
-                .simultaneousGesture(
-                        TapGesture(count: DeveloperTools.unlockTapCount)
-                        .onEnded {
-                            guard tutorial == nil,
-                                  DeveloperTools.isEnabledForCurrentBuild,
-                                  session.isHost else { return }
-                            developerTokens = player.tokens
-                            isShowingDeveloperGemEditor = true
-                        }
-                )
+                .frame(width: AdaptiveLayout.sideColumnWidth)
+                Divider()
             }
+            boardColumn
         }
         .overlayPreferenceValue(GameAnchorKey.self) { anchors in
             GeometryReader { proxy in
@@ -183,18 +88,10 @@ struct GameBoardView: View {
                 }
             }
         }
-        .overlay {
-            if isLocalTurn {
-                CurrentTurnBorder()
-            }
-        }
-        .overlay {
-            if isLocalTurn,
-               snapshot?.configuration.turnGracePeriodEnabled == true,
-               let deadline = session.turnDeadline {
-                GracePeriodBorder(deadline: deadline)
-            }
-        }
+        .turnBorder(
+            isLocalTurn: isLocalTurn,
+            graceDeadline: snapshot?.configuration.turnGracePeriodEnabled == true ? session.turnDeadline : nil
+        )
         // Sits above the (non-interactive) flight and border layers, and below the
         // roulette and pause covers so those hide it without any zIndex juggling.
         .quickChatOverlay(session: session, isEnabled: tutorial == nil, bottomInset: 92)
@@ -331,6 +228,120 @@ struct GameBoardView: View {
             guard let currentPlayerID else { return }
             if currentPlayerID != session.localID { closePendingTurnUI() }
             focusOnPlayer(currentPlayerID)
+        }
+    }
+
+    /// The phone layout. In the wide layout it is the right-hand column and the
+    /// opponent carousel gives way to the roster beside it.
+    private var boardColumn: some View {
+        VStack(spacing: 0) {
+            GameNavigationBar(
+                deadline: session.turnDeadline,
+                hasTimer: snapshot?.configuration.turnDurationSeconds != nil,
+                gracePeriodEnabled: snapshot?.configuration.turnGracePeriodEnabled == true,
+                canPause: session.isHost && !session.isPaused && !session.isOpeningTurnSelection && tutorial == nil,
+                onPause: { session.pauseGame() },
+                onExit: { isShowingExitConfirmation = true }
+            )
+
+            if let player = localPlayer, let target = snapshot?.configuration.targetPrestige {
+                VictoryProgressHeader(current: player.prestige, target: target)
+            }
+
+            Divider()
+
+            GeometryReader { proxy in
+                let roomy = proxy.size.height >= 430
+
+                if let snapshot, let player = localPlayer {
+                    VStack(spacing: roomy ? 10 : 6) {
+                        if !isWideBoard, !opponents(in: snapshot).isEmpty {
+                            OpponentCarousel(
+                                opponents: opponents(in: snapshot),
+                                currentPlayerID: snapshot.currentPlayerID,
+                                reserveLimit: snapshot.configuration.standardReserveLimit,
+                                opponentIndex: $opponentIndex,
+                                onOpenReservedCards: openOpponentReservedCards
+                            )
+                        }
+
+                        GemBankSection(
+                            bank: snapshot.bank,
+                            isLocalTurn: isLocalTurn,
+                            selectableGems: tutorialGuide.selectableGems,
+                            canTakeSelection: tutorialGuide.canTakeSelection,
+                            canPass: tutorialGuide.canPass,
+                            selectedGems: $selectedGems,
+                            onToggle: { toggleGem($0, bank: snapshot.bank) },
+                            onTake: { prepareTake(player: player) },
+                            onPass: {
+                                guard activeTutorialInteraction == nil else { return }
+                                isShowingPassConfirmation = true
+                            }
+                        )
+                        .padding(.vertical, roomy ? 2 : 0)
+
+                        NobleSection(
+                            nobles: snapshot.availableNobles,
+                            selectableNobleIDs: tutorialGuide.selectableNobleIDs,
+                            onSelect: { selectedNoble = $0 }
+                        )
+                        .padding(.vertical, roomy ? 2 : 0)
+
+                        MarketSection(
+                            snapshot: snapshot,
+                            player: player,
+                            isLocalTurn: isLocalTurn,
+                            selectableCardIDs: tutorialGuide.selectableCardIDs,
+                            canReserveDeck: tutorial == nil || tutorial?.phase == .freePlay,
+                            onSelectCard: { card, source in
+                                guard tutorialGuide.allowsCard(card.id) else { return }
+                                selectedCard = SelectedCard(card: card, source: source)
+                            },
+                            onReserveDeck: {
+                                guard activeTutorialInteraction == nil else { return }
+                                prepareReserve(.deck(tier: $0), card: nil, player: player, bank: snapshot.bank)
+                            }
+                        )
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, roomy ? 9 : 5)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                }
+            }
+            .background(Color(.systemGroupedBackground))
+
+            if let snapshot, let player = localPlayer {
+                PlayerInventoryBar(
+                    player: player,
+                    reservedCardCount: snapshot.localReservedCards.count,
+                    reserveLimit: snapshot.configuration.standardReserveLimit,
+                    isCurrentPlayer: isLocalTurn,
+                    deadline: session.turnDeadline,
+                    turnDurationSeconds: snapshot.configuration.turnDurationSeconds,
+                    onOpenReservedCards: {
+                        guard activeTutorialInteraction == nil else { return }
+                        reservedSheet = ReservedCardsSheetRequest(
+                            title: "game.reserved.title",
+                            cards: snapshot.localReservedCards,
+                            cardCount: snapshot.localReservedCards.count,
+                            purchasableCardIDs: isLocalTurn
+                                ? Set(snapshot.localReservedCards.filter { canPurchase($0, player: player) }.map(\.id))
+                                : []
+                        )
+                    }
+                )
+                .simultaneousGesture(
+                        TapGesture(count: DeveloperTools.unlockTapCount)
+                        .onEnded {
+                            guard tutorial == nil,
+                                  DeveloperTools.isEnabledForCurrentBuild,
+                                  session.isHost else { return }
+                            developerTokens = player.tokens
+                            isShowingDeveloperGemEditor = true
+                        }
+                )
+            }
         }
     }
 

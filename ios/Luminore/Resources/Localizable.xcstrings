@@ -538,22 +538,6 @@
         }
       }
     },
-    "common.comingSoon" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Coming soon"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "即将推出"
-          }
-        }
-      }
-    },
     "common.confirm" : {
       "localizations" : {
         "en" : {
@@ -866,7 +850,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gems per colour"
+            "value" : "Gems per color"
           }
         },
         "zh-Hans" : {
@@ -962,7 +946,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Customised"
+            "value" : "Customized"
           }
         },
         "zh-Hans" : {
@@ -1171,7 +1155,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Same-colour trigger chance"
+            "value" : "Same-color trigger chance"
           }
         },
         "zh-Hans" : {
@@ -1226,22 +1210,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "双人版"
-          }
-        }
-      }
-    },
-    "config.mode.silkRoad" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Silk Road"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "丝绸之路扩展版"
           }
         }
       }
@@ -1927,7 +1895,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Replenish"
+            "value" : "Refill"
           }
         },
         "zh-Hans" : {
@@ -4005,13 +3973,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choose a battle mode"
+            "value" : "Choose how to play"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "选择对战方式"
+            "value" : "选择游玩方式"
           }
         }
       }
@@ -5346,13 +5314,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Play through a configurable relay server"
+            "value" : "Play online with friends using a room code"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "通过可配置的中继服务器联机"
+            "value" : "使用房间码与好友远程联机"
           }
         }
       }
@@ -5426,7 +5394,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nearby Peer-to-Peer"
+            "value" : "Nearby"
           }
         },
         "zh-Hans" : {
@@ -7654,6 +7622,614 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "房间密码错误。"
+          }
+        }
+      }
+    },
+    "notice.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Before You Play"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始之前"
+          }
+        }
+      }
+    },
+    "notice.unofficial.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An independent project"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "独立项目"
+          }
+        }
+      }
+    },
+    "notice.unofficial.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Luminore is made independently by board game fans. It is not affiliated with, endorsed by, or sponsored by any other board game or its publisher."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本项目由桌游爱好者独立制作，与其他任何桌游及其发行方没有隶属关系，也未获其授权或认可。"
+          }
+        }
+      }
+    },
+    "notice.openSource.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fully open source"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完全开源"
+          }
+        }
+      }
+    },
+    "notice.openSource.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every line of the app and its relay server is public. Read it, build it, or contribute:"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App 与中转服务器的全部代码均已公开，欢迎查看、自行编译或参与贡献："
+          }
+        }
+      }
+    },
+    "notice.free.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard local play is free forever"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标准版本地联机永久免费"
+          }
+        }
+      }
+    },
+    "notice.free.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The standard game played over LAN or a nearby connection will always be free."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通过局域网或附近设备进行的标准版对局，永远免费。"
+          }
+        }
+      }
+    },
+    "notice.fees.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Possible fees later"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未来可能的收费"
+          }
+        }
+      }
+    },
+    "notice.fees.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As the number of players grows, non-standard modes and online play may carry a small fee to keep the servers running and the code maintained."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "随着用户增长，非标准版玩法和远程联机可能会收取部分费用，用于维持服务器运转和代码维护。"
+          }
+        }
+      }
+    },
+    "notice.acknowledge" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I Understand"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我知道了"
+          }
+        }
+      }
+    },
+    "about.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关于"
+          }
+        }
+      }
+    },
+    "about.notice" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About This Project"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目说明"
+          }
+        }
+      }
+    },
+    "about.sourceCode" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Source Code"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开源地址"
+          }
+        }
+      }
+    },
+    "about.version" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本"
+          }
+        }
+      }
+    },
+    "rule.unsupportedMode" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This game mode is not available."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该游戏模式不可用。"
+          }
+        }
+      }
+    },
+    "rule.invalidPlayerCount" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This mode cannot be played with this number of players."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前人数无法进行该模式。"
+          }
+        }
+      }
+    },
+    "rule.gameFinished" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The game has already finished."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "对局已经结束。"
+          }
+        }
+      }
+    },
+    "rule.notPlayersTurn" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It is not your turn."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有轮到你。"
+          }
+        }
+      }
+    },
+    "rule.invalidAction" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That action is not allowed right now."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前不能执行该操作。"
+          }
+        }
+      }
+    },
+    "rule.insufficientTokens" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There are not enough tokens."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "宝石数量不足。"
+          }
+        }
+      }
+    },
+    "rule.tokenLimitViolation" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You must end your turn within the token limit."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回合结束时持有的宝石不能超过上限。"
+          }
+        }
+      }
+    },
+    "rule.cardNotFound" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That card is no longer available."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张卡牌已不在场上。"
+          }
+        }
+      }
+    },
+    "rule.reserveLimitReached" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You cannot reserve any more cards."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预留卡牌已达上限。"
+          }
+        }
+      }
+    },
+    "rule.noGoldAvailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A card can only be reserved while a gold token is available."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "场上没有黄金时无法预留卡牌。"
+          }
+        }
+      }
+    },
+    "rule.cardNotAffordable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You cannot afford that card."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你买不起这张卡牌。"
+          }
+        }
+      }
+    },
+    "rule.invalidPayment" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That payment is not valid."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "支付方式无效。"
+          }
+        }
+      }
+    },
+    "rule.invalidNoble" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That noble cannot be chosen."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法选择这位贵族。"
+          }
+        }
+      }
+    },
+    "error.generic %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Something went wrong (%@). Please try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出了点问题（%@），请重试。"
+          }
+        }
+      }
+    },
+    "join_rejected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The host declined the request to join."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "房主拒绝了加入请求。"
+          }
+        }
+      }
+    },
+    "room_code_unsupported" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Room codes are only available for Internet play."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "房间码仅适用于互联网对战。"
+          }
+        }
+      }
+    },
+    "server_error" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server reported an error. Please try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器出错，请重试。"
+          }
+        }
+      }
+    },
+    "invalid_frame" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Received data the app could not read. Both players may need to update."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收到了无法识别的数据，双方可能需要更新 App。"
+          }
+        }
+      }
+    },
+    "room_connection_limit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This room has reached its connection limit."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该房间的连接数已达上限。"
+          }
+        }
+      }
+    },
+    "room_already_exists" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A room with this identity already exists. Please try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该房间已存在，请重试。"
+          }
+        }
+      }
+    },
+    "internal_error" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server ran into a problem. Please try again shortly."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器遇到问题，请稍后重试。"
+          }
+        }
+      }
+    },
+    "profiles.delete.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this profile?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这个档案？"
+          }
+        }
+      }
+    },
+    "profiles.delete.message %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” and all of its medals, match history and saves will be removed from this device and iCloud. This cannot be undone."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@”及其全部奖章、对局记录和存档将从本机与 iCloud 中移除，且无法恢复。"
+          }
+        }
+      }
+    },
+    "profiles.delete.confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Profile"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除档案"
           }
         }
       }

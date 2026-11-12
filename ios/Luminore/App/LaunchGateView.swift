@@ -11,13 +11,26 @@ struct LaunchGateView: View {
     @State private var container: ModelContainer?
     @State private var isIntroFinished = false
     @State private var isSplashDismissed = false
+    @AppStorage(LaunchNotice.acknowledgedKey) private var acknowledgedNoticeVersion = 0
 
     var body: some View {
         ZStack {
-            if let container {
+            if let container, isNoticeAcknowledged {
                 // 提前挂载：开屏还在播的时候主界面就已经在底下完成布局了。
                 RootView()
                     .modelContainer(container)
+                    .adaptiveColumn()
+            }
+
+            // 首次启动说明直接占位而不是 sheet：sheet 盖不住底下新手页的输入焦点，
+            // 键盘输入会漏到昵称框里。确认之后才挂载主界面。
+            if !isNoticeAcknowledged {
+                LaunchNoticeView {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        acknowledgedNoticeVersion = LaunchNotice.currentVersion
+                    }
+                }
+                .transition(.opacity)
             }
 
             if !isSplashDismissed {
@@ -30,6 +43,13 @@ struct LaunchGateView: View {
             container = await Self.makeContainerOffMainThread()
             dismissSplashIfReady()
         }
+    }
+
+    private var isNoticeAcknowledged: Bool {
+        #if DEBUG
+        if DemoScene.current != nil { return true }
+        #endif
+        return acknowledgedNoticeVersion >= LaunchNotice.currentVersion
     }
 
     private func markIntroFinished() {

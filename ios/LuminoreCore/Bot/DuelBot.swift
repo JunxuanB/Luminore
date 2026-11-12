@@ -1,6 +1,6 @@
 import Foundation
 
-/// Heuristic AI for Splendor Duel (双人版).
+/// Heuristic AI for the two-player Duel ruleset.
 ///
 /// A Duel turn is: optional privilege spends / replenish, then one mandatory
 /// action (take / reserve / purchase). The driver re-invokes `chooseAction` while

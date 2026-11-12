@@ -73,7 +73,6 @@ public struct Participant: Identifiable, Codable, Hashable, Sendable {
 
 public enum GameMode: String, CaseIterable, Codable, Sendable {
     case standard
-    case silkRoad
     case duel
 
     public var isAvailable: Bool { self == .standard || self == .duel }

@@ -53,17 +53,16 @@ struct CreateRoomView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("lan.room.details") {
+                Section {
                     TextField("lan.room.name", text: $roomName)
                     SecureField("lan.room.password.optional", text: $password)
                     if session.mode == .internet {
                         Toggle("internet.room.public", isOn: $isPublic)
                     }
-                }
-                Section {
+                } header: {
+                    Text("lan.room.details")
+                } footer: {
                     Text("lan.room.password.hint")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("lan.create")
@@ -94,12 +93,15 @@ struct JoinRoomView: View {
     @State private var password = ""
     @State private var roomCode = ""
     @State private var isResolvingCode = false
+    /// Shown inside the sheet: the session's error alert sits underneath this
+    /// sheet and cannot present while it is up.
+    @State private var codeError: String?
 
     var body: some View {
         NavigationStack {
             List {
                 if session.mode == .internet {
-                    Section("internet.room.code.section") {
+                    Section {
                         HStack {
                             TextField("internet.room.code.placeholder", text: $roomCode)
                                 .textInputAutocapitalization(.characters)
@@ -108,6 +110,12 @@ struct JoinRoomView: View {
                             if isResolvingCode { ProgressView() }
                             Button("internet.room.code.join") { resolveCode() }
                                 .disabled(normalizedCode.count != 6 || isResolvingCode)
+                        }
+                    } header: {
+                        Text("internet.room.code.section")
+                    } footer: {
+                        if let codeError {
+                            Text(codeError).foregroundStyle(.red)
                         }
                     }
                 }
@@ -184,7 +192,9 @@ struct JoinRoomView: View {
     }
 
     private func resolveCode() {
-        let code = roomCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        // Same normalisation the Join button is enabled by, so "abc-def" works.
+        let code = normalizedCode
+        codeError = nil
         isResolvingCode = true
         Task {
             defer { isResolvingCode = false }
@@ -193,7 +203,7 @@ struct JoinRoomView: View {
                 selectedRoom = room
                 if !room.descriptor.isPasswordProtected { connect(room) }
             } catch {
-                session.presentedError = error.localizedDescription
+                codeError = error.localizedDescription
             }
         }
     }

@@ -27,6 +27,7 @@ struct DuelGameBoardView: View {
     let onExit: () -> Void
     let onSaveAndSuspend: () -> Void
 
+    @Environment(\.isWideBoard) private var isWideBoard
     @State private var page: DuelBoardPage = .tokens
     @State private var selectedIndices: [Int] = []
     @State private var privilegeMode = false
@@ -82,51 +83,23 @@ struct DuelGameBoardView: View {
                             onOpenReservedCards: { openOpponentReservedCards(opponent, identity: opponentIdentity) }
                         )
 
-                        pagePicker
+                        if isWideBoard {
+                            // iPad landscape: both pages fit side by side.
+                            HStack(alignment: .top, spacing: 16) {
+                                tokenBoard(duel: duel, localPlayer: localPlayer)
+                                cardBoard(snapshot: snapshot, duel: duel, localPlayer: localPlayer)
+                            }
+                        } else {
+                            pagePicker
 
-                        TabView(selection: $page) {
-                            DuelTokenBoardSection(
-                                duel: duel,
-                                player: localPlayer,
-                                isLocalTurn: isLocalTurn,
-                                selectableIndices: tutorialGuide.selectableBoardIndices,
-                                canConfirmTake: tutorialGuide.canConfirmTake,
-                                canUsePrivilege: tutorialGuide.canUsePrivilege,
-                                canReplenish: tutorialGuide.canReplenish,
-                                canSkipTurn: tutorialGuide.canSkipTurn,
-                                selectedIndices: $selectedIndices,
-                                privilegeMode: $privilegeMode,
-                                onTapToken: tapBoardToken,
-                                onConfirmTake: prepareTake,
-                                onReplenish: {
-                                    guard activeTutorialInteraction == nil
-                                            || activeTutorialInteraction == .duelReplenish else { return }
-                                    session.submit(.duel(.replenish))
-                                },
-                                onSkipTurn: { showsSkipConfirmation = true }
-                            )
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                            .tag(DuelBoardPage.tokens)
-
-                            DuelCardBoardSection(
-                                duel: duel,
-                                player: localPlayer,
-                                isLocalTurn: isLocalTurn,
-                                showsHighlight: snapshot.configuration.affordableCardHighlightEnabled,
-                                selectableCardIDs: tutorialGuide.selectableCardIDs,
-                                selectableRoyalIDs: tutorialGuide.selectableRoyalIDs,
-                                canReserveDeck: activeTutorialInteraction == nil,
-                                onSelectCard: {
-                                    guard tutorialGuide.allowsCard($0.id) else { return }
-                                    selectedCard = DuelCardSelection(card: $0, source: $1)
-                                },
-                                onReserveDeck: { reserveSelection = DuelReserveSelection(source: .deck(tier: $0), card: nil) },
-                                onSelectRoyal: { selectedRoyal = $0 }
-                            )
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                            .tag(DuelBoardPage.cards)
+                            TabView(selection: $page) {
+                                tokenBoard(duel: duel, localPlayer: localPlayer)
+                                    .tag(DuelBoardPage.tokens)
+                                cardBoard(snapshot: snapshot, duel: duel, localPlayer: localPlayer)
+                                    .tag(DuelBoardPage.cards)
+                            }
+                            .tabViewStyle(.page(indexDisplayMode: .never))
                         }
-                        .tabViewStyle(.page(indexDisplayMode: .never))
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, roomy ? 9 : 5)
@@ -175,12 +148,10 @@ struct DuelGameBoardView: View {
                 DuelTutorialPageSynchronizer(controller: tutorial, page: $page)
             }
         }
-        .overlay { if isLocalTurn { CurrentTurnBorder() } }
-        .overlay {
-            if isLocalTurn, snapshot?.configuration.turnGracePeriodEnabled == true, let deadline = session.turnDeadline {
-                GracePeriodBorder(deadline: deadline)
-            }
-        }
+        .turnBorder(
+            isLocalTurn: isLocalTurn,
+            graceDeadline: snapshot?.configuration.turnGracePeriodEnabled == true ? session.turnDeadline : nil
+        )
         // Sits above the (non-interactive) flight and border layers, and below the
         // roulette and pause covers so those hide it without any zIndex juggling.
         .quickChatOverlay(session: session, isEnabled: tutorial == nil)
@@ -423,6 +394,53 @@ struct DuelGameBoardView: View {
             }
         }
         return nil
+    }
+
+    private func tokenBoard(duel: DuelClientSnapshot, localPlayer: DuelPublicPlayerSnapshot) -> some View {
+        DuelTokenBoardSection(
+            duel: duel,
+            player: localPlayer,
+            isLocalTurn: isLocalTurn,
+            selectableIndices: tutorialGuide.selectableBoardIndices,
+            canConfirmTake: tutorialGuide.canConfirmTake,
+            canUsePrivilege: tutorialGuide.canUsePrivilege,
+            canReplenish: tutorialGuide.canReplenish,
+            canSkipTurn: tutorialGuide.canSkipTurn,
+            selectedIndices: $selectedIndices,
+            privilegeMode: $privilegeMode,
+            onTapToken: tapBoardToken,
+            onConfirmTake: prepareTake,
+            onReplenish: {
+                guard activeTutorialInteraction == nil
+                        || activeTutorialInteraction == .duelReplenish else { return }
+                session.submit(.duel(.replenish))
+            },
+            onSkipTurn: { showsSkipConfirmation = true }
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private func cardBoard(
+        snapshot: ClientGameSnapshot,
+        duel: DuelClientSnapshot,
+        localPlayer: DuelPublicPlayerSnapshot
+    ) -> some View {
+        DuelCardBoardSection(
+            duel: duel,
+            player: localPlayer,
+            isLocalTurn: isLocalTurn,
+            showsHighlight: snapshot.configuration.affordableCardHighlightEnabled,
+            selectableCardIDs: tutorialGuide.selectableCardIDs,
+            selectableRoyalIDs: tutorialGuide.selectableRoyalIDs,
+            canReserveDeck: activeTutorialInteraction == nil,
+            onSelectCard: {
+                guard tutorialGuide.allowsCard($0.id) else { return }
+                selectedCard = DuelCardSelection(card: $0, source: $1)
+            },
+            onReserveDeck: { reserveSelection = DuelReserveSelection(source: .deck(tier: $0), card: nil) },
+            onSelectRoyal: { selectedRoyal = $0 }
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     private var pagePicker: some View {

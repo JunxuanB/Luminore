@@ -85,12 +85,17 @@ struct InternetServerSettingsView: View {
         guard let url = validatedURL else { return }
         checkState = .checking
         Task {
+            let result: CheckState
             do {
                 try await InternetServerSettings.healthCheck(url: url)
-                checkState = .compatible
+                result = .compatible
             } catch {
-                checkState = .failed(error.localizedDescription)
+                result = .failed(error.localizedDescription)
             }
+            // The address may have been edited while the request was in flight;
+            // a verdict for the old one must not be shown against the new one.
+            guard validatedURL == url, checkState == .checking else { return }
+            checkState = result
         }
     }
 

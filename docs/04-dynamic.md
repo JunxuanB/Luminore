@@ -1,25 +1,21 @@
-现在，我需要请你帮我实现一个复杂的功能：暂时离开。
-有时候，可能收到微信或者其他消息需要暂时离开 APP，这时候可以：
-- 暂时离开，不暂停计时什么的，只是切个屏（目前切个屏就容易掉线并且不太好重连）
-- 暂停游戏，房主可以在右上角进行游戏暂停。暂停以后页面直接加一个 cover 层提示游戏已暂停
-- 存档游戏，同一个对局相同 UUID 的玩家们可以选择退出并暂停，等会儿晚点玩。这个存档存储在主机上
-- 断线重连，应该有地方可以允许玩家重新加入（最好是直接在主页提示对局进行中是否重新加入之类的）
+# Stepping away, pausing, saving and reconnecting
 
-除了存档游戏和短线重连。在暂时离开或者游戏暂停的时候，反正就是对局存在的时候，多一个苹果灵动岛显示对局状态。以及是否到你。
+Players sometimes need to leave the app briefly, for example to answer a message. The requirements were:
 
-记得这些未来要适配 LAN、互联网以及蓝牙游戏。
+- **Step away**: switching apps must not drop the player or make reconnecting hard. Timers keep running.
+- **Pause**: the host can pause the match from the top-right corner. A cover over the board says the match is paused.
+- **Save**: the players of a match can stop and continue later. The save is stored on the host.
+- **Reconnect**: a disconnected player must be able to get back in.
 
-你可以提问，你可以告诉我这些东西的不合理之处。
+All of this must work over LAN, Internet and nearby (Bluetooth) play.
 
----
+## Current state of saving (rewritten 2026-08-19)
 
-## 实现现状（存档部分，2026-08-19 重写）
+A save is no longer tied to a room, a transport or reconnect credentials. There is no automatic restore of the original room, no substitute assignment and no "rejoin" prompt on the home screen.
 
-存档不再绑定房间、传输方式或重连凭证，也不再有「自动恢复原房间 / 替补分配 / 首页重新加入」那一套：
+- **Saving**: the host pauses the match and chooses Save & Exit. The match ends and everyone returns to the home screen. One account can hold several saves.
+- **Loading**: create a room as usual, wait for everyone, open the configuration screen and choose Load Save. Only saves whose seat count **exactly** matches the number of connected players can be loaded. Loading ignores the settings on the configuration screen and uses the `GameConfiguration` stored with the save.
+- **Seat matching**: before loading, the host assigns each saved seat to a player in the room (human or AI). Matching UUIDs are paired automatically and can be changed by hand. Seat order is turn order, and progress follows the seat.
+- **Deleting**: swipe left in the save list. Leaving a match no longer deletes a save.
 
-- **保存**：房主在对局中暂停 →「保存并退出」。本局结束，所有人回首页。同一账号可以有多份存档。
-- **载入**：正常新建房间 → 人齐后进入配置页 →《载入存档》。只有座位数与当前房间在线人数**完全一致**的存档可以载入；载入会忽略配置页的设置，改用存档保存时的 `GameConfiguration`。
-- **人员匹配**：载入前进入匹配页，房主把每个存档座位指派给房间里的一名玩家（真人或人机均可）。相同 UUID 自动配对，可手动改。座位顺序即行动顺序，进度跟着座位走。
-- **删除**：存档列表页左滑删除。离开对局不会再删掉存档。
-
-三种对战方式共用同一条载入路径（`MatchSessionService.loadSavedGame`），与 `startGame` 走同一套广播链路。灵动岛未实现，也不打算实现。
+All three play modes share one loading path (`MatchSessionService.loadSavedGame`), which uses the same broadcast chain as `startGame`. A Dynamic Island / Live Activity was considered and is not planned.

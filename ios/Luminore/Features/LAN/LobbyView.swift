@@ -29,15 +29,15 @@ struct LobbyView: View {
             }
         }
         .padding(.vertical)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemGroupedBackground))
         .navigationTitle("lobby.title")
         .environment(\.editMode, .constant(isReordering ? .active : .inactive))
         .toolbar {
             if session.isHost, let room = session.room {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button("config.ai.easy") { session.addBot(difficulty: .easy) }
-                        Button("config.ai.normal") { session.addBot(difficulty: .normal) }
-                        Button("config.ai.hard") { session.addBot(difficulty: .hard) }
+                        addBotButtons
                     } label: {
                         Label("lobby.addBot", systemImage: "cpu")
                     }
@@ -45,6 +45,12 @@ struct LobbyView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder private var addBotButtons: some View {
+        Button("config.ai.easy") { session.addBot(difficulty: .easy) }
+        Button("config.ai.normal") { session.addBot(difficulty: .normal) }
+        Button("config.ai.hard") { session.addBot(difficulty: .hard) }
     }
 
     @ViewBuilder
@@ -99,6 +105,7 @@ struct LobbyView: View {
             .moveDisabled(!isReordering)
         }
         .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         if session.isHost {
             Text("lobby.order.hint")
                 .font(.footnote)
@@ -149,12 +156,26 @@ struct LobbyView: View {
             ))
             .padding(.horizontal)
         }
-        Button("lobby.configure") { session.enterConfiguration() }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(room.participants.filter(\.isConnected).count < 2)
-        Text("lobby.minimum")
-            .font(.footnote).foregroundStyle(.secondary)
+        let canConfigure = room.participants.filter(\.isConnected).count >= 2
+        HStack(spacing: 12) {
+            // Also in the toolbar, but an icon-only button there is easy to miss
+            // for a solo player wondering why they cannot start.
+            Menu {
+                addBotButtons
+            } label: {
+                Label("lobby.addBot", systemImage: "cpu")
+            }
+            .buttonStyle(.bordered)
+            .disabled(room.participants.count >= room.descriptor.maximumPlayers)
+            Button("lobby.configure") { session.enterConfiguration() }
+                .buttonStyle(.borderedProminent)
+                .disabled(!canConfigure)
+        }
+        .controlSize(.large)
+        if !canConfigure {
+            Text("lobby.minimum")
+                .font(.footnote).foregroundStyle(.secondary)
+        }
     }
 
     private static func difficultyKey(_ difficulty: BotDifficulty) -> LocalizedStringKey {

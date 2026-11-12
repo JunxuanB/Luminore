@@ -1,48 +1,47 @@
-在这个项目里，我希望制作一款璀璨宝石桌游玩法，并使用 Swift 语言制作 iOS 版。
-他支持璀璨宝石的多个版本，比如说正常版、丝绸之路扩展版以及双人版。
+This project is Luminore, a gem-trading board game for iOS written in Swift.
+It supports several rulesets, currently Standard and the two-player Duel.
 
-技术栈：
-- 前端 Swift
-- 后端 Typescript 并全套使用 Cloudflare 服务
+Tech stack:
+- Front end: Swift
+- Back end: TypeScript, entirely on Cloudflare services
 
-重要决策：
-- 竖屏游戏
-- 未来不考虑上线 App Store，无需考虑苹果审核机制
-- 只需要支持最近几年的 iOS 版本即可
-- 需要考虑一定的屏幕适配，比如说 iPhone 14 之后出的机型，但是无需考虑 iPhone SE 这种极端情况
-- UI 简单大气（原生 IOS 风格）
-- 不需要过分考虑反作弊，不需要考虑本地程序篡改和本地存档篡改
-- 支持多语言，目前只需要中文和英文
-- 小模块代码，不要一个超级长的代码文件
+Key decisions:
+- iPhone is portrait only; iPad supports every orientation and is mostly used in landscape
+- Only recent iOS versions need to be supported
+- Adapt to screen sizes from iPhone 14 onwards; extreme cases such as iPhone SE can be ignored
+- Simple, clean UI in the native iOS style
+- Anti-cheat is not a priority; local binary or save tampering does not need to be handled
+- Multilingual; currently Chinese and English
+- Small code modules; no very long source files
 
-对战方式（均支持多人，甚至超过 4 人对战）：
-- 互联网对战
-- 局域网对战
-- MultipeerConnectivity 对战
+Play modes (all multiplayer, including more than 4 players):
+- Internet
+- Local network (LAN)
+- MultipeerConnectivity
 
-因为对战方式多样，所以即使是后端服务器也只是担任数据转发的作用。
-账号层面的只有 4 个东西：
+Because the modes differ so much, the back-end server only relays data.
+The account layer has just four things:
 - UUID
-- 昵称
-- 奖章，奖章就是每次对局结束后，失败的那一方要给胜利的那一方颁发一个带有自己 UUID 的奖章，胜利的那一方可以在自己的奖章列表里看到所有的奖章。
-- 对局终局记录
-这三个东西存储在用户本地，自动备份在用户的 iCloud 里。因为不考虑反作弊，所以不需要考虑本地程序篡改和本地存档篡改。明文存储无需加密。
+- Nickname
+- Medals: after each match the losing side awards the winner a medal carrying the loser's UUID, and the winner can see every medal in their medal list
+- Final match records
+These are stored locally and backed up automatically to the user's iCloud. Since anti-cheat is out of scope, they are stored in plain text without encryption.
 
-未来可能的计划（低可能性的可以忽略，但是高可能性的尽可能预留未来扩展空间）：
-- 高可能性-人机对战
-- 高可能性-人机参加对局
-- 低可能性—电脑版（macos）
-- 低可能性-网页版（web）
+Possible future plans (ignore the low-probability ones; leave room for the high-probability ones):
+- High: playing against AI
+- High: AI players joining a match
+- Low: desktop (macOS)
+- Low: web
 
-你可以提问细节，确认好了再开始
+Ask about details and confirm before starting.
 
-Swift 代码只编译，不运行。如果你要自己检查和测试，请调用 iPhone 17 Pro 机型测试。
+Swift code is compiled, not run. To check or test something yourself, use the iPhone 17 Pro simulator.
 
-主项目位于 /ios 而不是 /ios-ui-demo。所有功能实现必须确保三种对战方式都可用、同步更新。
+The main project lives in /ios. Every feature must work in, and stay in sync across, all three play modes.
 
-修改后端后记得部署。
+Deploy the back end after changing it.
 
-多语言规则：所有面向用户的文案一律以 APP 内的语言设置为准（`languageOverride`，其默认值 system 即跟随本机语言），不得直接读取本机/系统语言。
-- 文案统一放在 `ios/Luminore/Resources/Localizable.xcstrings`（默认表），中英文都要补齐；不要新建独立的 xcstrings 表。
-- SwiftUI 里用 `Text("key")` 这类 LocalizedStringKey，由 `LuminoreApp` 注入的 `\.locale` 生效。
-- 任何在运行时拼装字符串的地方（错误提示、人机昵称、无障碍标签、通知等）必须走 `AppLanguage.string(_:)`，禁止直接使用 `String(localized:)` / `NSLocalizedString` —— 它们只认系统语言，会绕过 APP 语言设置。
+Localization rules: all user-facing text follows the in-app language setting (`languageOverride`, whose default `system` follows the device language). Never read the device/system language directly.
+- Strings live in `ios/Luminore/Resources/Localizable.xcstrings` (the default table), with both Chinese and English filled in. Do not create separate xcstrings tables.
+- In SwiftUI use `Text("key")` style LocalizedStringKey values; the `\.locale` injected by `LuminoreApp` makes them take effect.
+- Anything that builds a string at runtime (error messages, AI nicknames, accessibility labels, notifications) must go through `AppLanguage.string(_:)`. Never use `String(localized:)` or `NSLocalizedString` directly: they only honour the system language and bypass the in-app setting.

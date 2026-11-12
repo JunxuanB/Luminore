@@ -6,6 +6,18 @@ struct RootView: View {
     @AppStorage("activeProfileID") private var activeProfileID = ""
 
     var body: some View {
+        #if DEBUG
+        if let scene = DemoScene.current {
+            DemoSceneHost(scene: scene)
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
+    }
+
+    private var content: some View {
         Group {
             if profiles.isEmpty {
                 OnboardingView()

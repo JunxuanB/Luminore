@@ -6,6 +6,7 @@ struct AccountView: View {
     @AppStorage("activeProfileID") private var activeProfileID = ""
     @AppStorage("languageOverride") private var languageOverride = "system"
     @State private var draftNickname = ""
+    @State private var showingNotice = false
 
     private var activeProfile: AccountProfile? {
         profiles.first { $0.uuid.uuidString == activeProfileID } ?? profiles.first
@@ -50,10 +51,30 @@ struct AccountView: View {
             if let profile = activeProfile {
                 ProfileRecordsSections(profile: profile)
             }
+
+            Section("about.title") {
+                Button("about.notice") { showingNotice = true }
+                Link(destination: LaunchNotice.sourceURL) {
+                    LabeledContent("about.sourceCode") {
+                        Image(systemName: "arrow.up.right.square")
+                    }
+                }
+                LabeledContent("about.version", value: appVersion)
+            }
         }
         .navigationTitle("account.title")
+        .sheet(isPresented: $showingNotice) {
+            LaunchNoticeView { showingNotice = false }
+        }
         .onAppear { draftNickname = activeProfile?.nickname ?? "" }
         .onChange(of: activeProfileID) { _, _ in draftNickname = activeProfile?.nickname ?? "" }
+    }
+
+    private var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? ""
+        let build = info?["CFBundleVersion"] as? String ?? ""
+        return "\(version) (\(build))"
     }
 
     private var normalizedNickname: String {

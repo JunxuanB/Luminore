@@ -10,8 +10,10 @@ struct ProfilesView: View {
     @Query(sort: \AccountProfile.createdAt) private var profiles: [AccountProfile]
     @Query private var medals: [MedalRecord]
     @Query private var completedGames: [CompletedGameRecord]
+    @Query private var saves: [GameSaveRecord]
     @AppStorage("activeProfileID") private var activeProfileID = ""
     @State private var isAddingProfile = false
+    @State private var pendingDeletion: AccountProfile?
 
     var body: some View {
         List {
@@ -38,7 +40,12 @@ struct ProfilesView: View {
                         }
                     }
                 }
-                .onDelete(perform: deleteProfiles)
+                .onDelete { offsets in
+                    // Deleting wipes medals and history from iCloud too, so ask first.
+                    guard profiles.count > 1, let index = offsets.first else { return }
+                    pendingDeletion = profiles[index]
+                }
+                .deleteDisabled(profiles.count <= 1)
             } footer: {
                 Text("account.profiles.hint")
             }
@@ -53,6 +60,17 @@ struct ProfilesView: View {
         }
         .navigationTitle("account.profiles")
         .toolbar { EditButton() }
+        .confirmationDialog(
+            "profiles.delete.title",
+            isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
+            titleVisibility: .visible,
+            presenting: pendingDeletion
+        ) { profile in
+            Button("profiles.delete.confirm", role: .destructive) { delete(profile) }
+            Button("common.cancel", role: .cancel) {}
+        } message: { profile in
+            Text("profiles.delete.message \(profile.nickname)")
+        }
         .sheet(isPresented: $isAddingProfile) {
             NewProfileSheet { nickname in
                 let profile = AccountProfile(nickname: nickname)
@@ -63,17 +81,18 @@ struct ProfilesView: View {
         }
     }
 
-    private func deleteProfiles(at offsets: IndexSet) {
+    private func delete(_ profile: AccountProfile) {
         // Keep at least one profile so the app never drops back to onboarding by
         // surprise.
-        guard profiles.count > offsets.count else { return }
-        let deletedIDs = Set(offsets.map { profiles[$0].uuid.uuidString })
-        medals.filter { deletedIDs.contains($0.ownerKey) }.forEach(modelContext.delete)
-        completedGames.filter { deletedIDs.contains($0.ownerKey) }.forEach(modelContext.delete)
-        for index in offsets { modelContext.delete(profiles[index]) }
+        guard profiles.count > 1 else { return }
+        let key = profile.uuid.uuidString
+        medals.filter { $0.ownerKey == key }.forEach(modelContext.delete)
+        completedGames.filter { $0.ownerKey == key }.forEach(modelContext.delete)
+        saves.filter { $0.ownerKey == key }.forEach(modelContext.delete)
+        modelContext.delete(profile)
         try? modelContext.save()
-        if deletedIDs.contains(activeProfileID) {
-            activeProfileID = profiles.first { !deletedIDs.contains($0.uuid.uuidString) }?.uuid.uuidString ?? ""
+        if activeProfileID == key {
+            activeProfileID = profiles.first { $0.uuid.uuidString != key }?.uuid.uuidString ?? ""
         }
     }
 }

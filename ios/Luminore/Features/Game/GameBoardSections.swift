@@ -15,7 +15,12 @@ struct OpponentCarousel: View {
                     withAnimation(.snappy) { showPreviousOpponent() }
                 }
 
-                opponentCard(opponent)
+                OpponentCard(
+                    opponent: opponent,
+                    position: "\(opponentIndex + 1)/\(opponents.count)",
+                    isCurrent: opponent.id == currentPlayerID,
+                    reserveLimit: reserveLimit
+                )
                     .id(opponent.id)
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
                     .gesture(
@@ -46,7 +51,43 @@ struct OpponentCarousel: View {
         return opponents[min(opponentIndex, opponents.count - 1)]
     }
 
-    private func opponentCard(_ opponent: PublicPlayerSnapshot) -> some View {
+    private func carouselButton(
+        systemName: String,
+        label: LocalizedStringKey,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.subheadline.bold())
+                .frame(width: 23, height: 68)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .accessibilityLabel(Text(label))
+    }
+
+    private func showNextOpponent() {
+        guard !opponents.isEmpty else { return }
+        opponentIndex = (opponentIndex + 1) % opponents.count
+    }
+
+    private func showPreviousOpponent() {
+        guard !opponents.isEmpty else { return }
+        opponentIndex = (opponentIndex - 1 + opponents.count) % opponents.count
+    }
+}
+
+/// One opponent's public state. Shared by the phone carousel (one at a time) and
+/// the wide-layout roster (everyone at once).
+struct OpponentCard: View {
+    let opponent: PublicPlayerSnapshot
+    /// "2/3" in the carousel; `nil` in the roster, where every seat is visible.
+    var position: String?
+    let isCurrent: Bool
+    let reserveLimit: Int
+
+    var body: some View {
         VStack(spacing: 5) {
             HStack {
                 Label {
@@ -67,9 +108,11 @@ struct OpponentCarousel: View {
                         .accessibilityLabel(Text("game.player.disconnected"))
                 }
 
-                Text("\(opponentIndex + 1)/\(opponents.count)")
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                if let position {
+                    Text(position)
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
 
                 Spacer()
 
@@ -103,7 +146,7 @@ struct OpponentCarousel: View {
             in: RoundedRectangle(cornerRadius: 18, style: .continuous)
         )
         .overlay {
-            if opponent.id == currentPlayerID {
+            if isCurrent {
                 ShimmerBorder(cornerRadius: 18, lineWidth: 2.5)
             } else {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -118,31 +161,35 @@ struct OpponentCarousel: View {
             Text(label).font(.caption2).foregroundStyle(.secondary)
         }
     }
+}
 
-    private func carouselButton(
-        systemName: String,
-        label: LocalizedStringKey,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.subheadline.bold())
-                .frame(width: 23, height: 68)
-                .contentShape(Rectangle())
+/// Wide layout (iPad landscape): every opponent stacked in a side column, so
+/// nobody has to page through the carousel to follow the table.
+struct OpponentRoster: View {
+    let opponents: [PublicPlayerSnapshot]
+    let currentPlayerID: UUID
+    let reserveLimit: Int
+    let onOpenReservedCards: (PublicPlayerSnapshot) -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 10) {
+                ForEach(opponents) { opponent in
+                    OpponentCard(
+                        opponent: opponent,
+                        isCurrent: opponent.id == currentPlayerID,
+                        reserveLimit: reserveLimit
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture { onOpenReservedCards(opponent) }
+                    .accessibilityHint(Text("game.opponent.reserved.hint"))
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(.secondary)
-        .accessibilityLabel(Text(label))
-    }
-
-    private func showNextOpponent() {
-        guard !opponents.isEmpty else { return }
-        opponentIndex = (opponentIndex + 1) % opponents.count
-    }
-
-    private func showPreviousOpponent() {
-        guard !opponents.isEmpty else { return }
-        opponentIndex = (opponentIndex - 1 + opponents.count) % opponents.count
+        .scrollBounceBehavior(.basedOnSize)
+        .background(Color(.systemGroupedBackground))
     }
 }
 

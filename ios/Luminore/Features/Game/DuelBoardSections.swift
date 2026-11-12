@@ -273,6 +273,11 @@ struct DuelTokenBoardSection: View {
                     }
                 }
                 .font(.caption2.bold())
+                // English labels ("Use Privilege", "Replenish") do not fit the
+                // 66pt column on one line; wrap and shrink instead of truncating.
+                .lineLimit(2)
+                .minimumScaleFactor(0.55)
+                .multilineTextAlignment(.center)
                 .controlSize(.small)
                 .frame(width: 66)
             }
@@ -280,6 +285,10 @@ struct DuelTokenBoardSection: View {
             Text("duel.privilege.legend")
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(.purple)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 6)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 5)
                 .background(Color.purple.opacity(0.08), in: RoundedRectangle(cornerRadius: 9))

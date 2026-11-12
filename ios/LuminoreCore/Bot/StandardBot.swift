@@ -1,6 +1,6 @@
 import Foundation
 
-/// Heuristic AI for standard (2–7 player) Splendor.
+/// Heuristic AI for the standard (2–7 player) ruleset.
 ///
 /// Strategy: enumerate a broad set of candidate actions (takes, reserves,
 /// purchases), keep only those the ruleset accepts, then score the resulting

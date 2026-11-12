@@ -34,12 +34,14 @@ struct TutorialFlowView: View {
             } else {
                 switch session.phase {
                 case .game:
-                    GameBoardView(
-                        session: session,
-                        tutorial: controller,
-                        onExit: exit,
-                        onSaveAndSuspend: {}
-                    )
+                    PhoneCanvas {
+                        GameBoardView(
+                            session: session,
+                            tutorial: controller,
+                            onExit: exit,
+                            onSaveAndSuspend: {}
+                        )
+                    }
                 case .results:
                     TutorialCompletionView(onDone: exit)
                 default:
@@ -48,7 +50,8 @@ struct TutorialFlowView: View {
                 }
             }
         }
-        .navigationBarBackButtonHidden(!showIntro)
+        .groupedScreenBackground()
+        .navigationBarBackButtonHidden(true)
         .onDisappear {
             if session.phase != .game { session.leave() }
         }

@@ -5,7 +5,7 @@ import UIKit
 
 /// A per-installation identity.
 ///
-/// Splendor's account model stores a single UUID in iCloud, so every device
+/// Luminore's account model stores a single UUID in iCloud, so every device
 /// signed into the same Apple ID reads the *same* account UUID. That UUID answers
 /// "who is this person"; it cannot answer "which device is this". `DeviceIdentity`
 /// fills that gap: `installID` is generated locally on first launch and never

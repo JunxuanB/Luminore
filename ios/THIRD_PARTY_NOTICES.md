@@ -27,8 +27,7 @@ SOFTWARE.
 
 ---
 
-The Splendor Duel base-game card and Royal card numeric data was transcribed
-from the physical game and cross-checked against the `nicolasloucheu/splendor-duel`
+The Duel-mode card and Royal card numeric data was cross-checked against the `nicolasloucheu/splendor-duel`
 project.
 
 MIT License

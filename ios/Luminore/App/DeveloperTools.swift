@@ -3,7 +3,13 @@ import Foundation
 enum DeveloperTools {
     static let unlockTapCount = 5
 
+    /// Debug builds only. This used to key off `CFBundleVersion == "1"`, which
+    /// would have shipped the gem editor in the first release build.
     static var isEnabledForCurrentBuild: Bool {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String == "1"
+        #if DEBUG
+        true
+        #else
+        false
+        #endif
     }
 }

@@ -1,7 +1,7 @@
-我现在希望填补最后一块版图：互联网联机和蓝牙联机。
+# Internet and nearby play brief
 
-互联网服务器放在 backend 目录下，需要可以部署到 Cloudflare Workers上，我已经登录了 wargger, 你可以自己创建所需要的服务，例如 workers 以及 KV。请注意，这个后端的核心是作为数据转发的作用，所有的游戏逻辑都在客户端完成。后端只需要负责转发数据即可。
+The last pieces were Internet play and nearby (Bluetooth) play.
 
-在游戏里，合适位置应该可以选择后端服务器 url 并保存在本地。
-
-你可以提问。
+- The Internet server lives in `backend/` and deploys to Cloudflare Workers.
+- Its only job is to relay data. All game logic runs on the clients.
+- The app lets the player choose the server URL and stores it locally.

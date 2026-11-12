@@ -1,33 +1,40 @@
-在这个项目里，我希望制作一款璀璨宝石桌游玩法，并使用 Swift 语言制作 iOS 版。
-他支持璀璨宝石的多个版本，比如说正常版、丝绸之路扩展版以及双人版。
+# Project plan
 
-技术栈：
-- 前端 Swift
-- 后端 Typescript 并全套使用 Cloudflare 服务
+Luminore is a gem-trading board game for iOS written in Swift, with several rulesets (Standard and the two-player Duel).
 
-重要决策：
-- 竖屏游戏
-- 未来不考虑上线 App Store，无需考虑苹果审核机制
-- 只需要支持最近几年的 iOS 版本即可
-- 需要考虑一定的屏幕适配，比如说 iPhone 14 之后出的机型，但是无需考虑 iPhone SE 这种极端情况
-- UI 简单大气（原生 IOS 风格）
-- 不需要过分考虑反作弊，不需要考虑本地程序篡改和本地存档篡改
+## Tech stack
 
-对战方式（均支持多人，甚至超过 4 人对战）：
-- 互联网对战
-- 局域网对战
-- MultipeerConnectivity 对战
+- Front end: Swift
+- Back end: TypeScript, entirely on Cloudflare services
 
-因为对战方式多样，所以即使是后端服务器也只是担任数据转发的作用。
-账号层面的只有 4 个东西：
+## Key decisions
+
+- iPhone is portrait only; iPad supports every orientation
+- Only recent iOS versions need to be supported
+- Adapt to iPhone 14 and later; iPhone SE-sized screens are out of scope
+- Simple, clean UI in the native iOS style
+- Anti-cheat is not a priority; local binary and save tampering are not handled
+
+## Play modes
+
+All are multiplayer, including tables of more than four players:
+
+- Internet
+- Local network (LAN)
+- MultipeerConnectivity
+
+Because the modes differ so much, the back-end server only relays data.
+
+## Account model
+
 - UUID
-- 昵称
-- 奖章，奖章就是每次对局结束后，失败的那一方要给胜利的那一方颁发一个带有自己 UUID 的奖章，胜利的那一方可以在自己的奖章列表里看到所有的奖章。
-- 对局终局记录
-这三个东西存储在用户本地，自动备份在用户的 iCloud 里。因为不考虑反作弊，所以不需要考虑本地程序篡改和本地存档篡改。明文存储无需加密。
+- Nickname
+- Medals: after each match the losing side awards the winner a medal carrying the loser's UUID; the winner sees every medal in a list
+- Final match records
 
-未来可能的计划（低可能性的可以忽略，但是高可能性的尽可能预留未来扩展空间）：
-- 高可能性-人机对战
-- 高可能性-人机参加对局
-- 低可能性—电脑版（macos）
-- 低可能性-网页版（web）
+These are stored locally and backed up to the user's own iCloud, in plain text.
+
+## Possible future work
+
+- High probability: playing against AI, and AI players joining a match (both now implemented)
+- Low probability: macOS and web versions

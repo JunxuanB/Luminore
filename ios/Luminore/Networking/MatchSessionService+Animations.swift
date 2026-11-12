@@ -81,8 +81,18 @@ extension MatchSessionService {
                 //
                 // It also runs before the broadcast, so one snapshot carries both
                 // the bank losing the buried token and the dig window itself.
-                self.startPendingMiningIfNeeded()
-                guard self.authoritativeGame?.revision == revision else { return }
+                //
+                // Whether this task is still the current one has to be judged
+                // BEFORE the dig resolves, and a dig that did open forces the
+                // broadcast regardless: opening a window bumps the revision
+                // itself, so checking afterwards made every animated trigger
+                // (every `.take`, i.e. every 拿两颗同色 dig) look stale and
+                // swallowed the one snapshot that announces the window. The dig
+                // then existed only on the host — the miner's own device never
+                // heard about it, never tapped, and always lost.
+                let isCurrent = self.authoritativeGame?.revision == revision
+                let startedDig = self.startPendingMiningIfNeeded()
+                guard isCurrent || startedDig else { return }
                 if resetsTurnTimer { self.scheduleTurnTimer() }
                 self.broadcastGame()
                 self.scheduleBotTurnIfNeeded()

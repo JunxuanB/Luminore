@@ -59,11 +59,11 @@ extension MatchSessionService {
             isReconnectLoopActive = false
             hostPeer = nil
             transport.disconnect(closeRoom: false)
-            presentedError = AppLanguage.string(reason)
+            presentedError = AppLanguage.errorMessage(reason)
             phase = .ended
         case let .failed(message):
             guard !isLeaving else { return }
-            presentedError = AppLanguage.string(message)
+            presentedError = AppLanguage.errorMessage(message)
             guard phase == .connecting else { return }
             if room == nil {
                 phase = .ended
@@ -139,7 +139,7 @@ extension MatchSessionService {
             send(.join(request), to: peer)
         case let .joinResponse(response):
             guard response.accepted else {
-                presentedError = AppLanguage.string(response.reason ?? "join_rejected")
+                presentedError = AppLanguage.errorMessage(response.reason ?? "join_rejected")
                 phase = .ended
                 transport.disconnect(closeRoom: false)
                 return
@@ -199,7 +199,7 @@ extension MatchSessionService {
             isLeaving = true
             leave()
         case let .error(message):
-            presentedError = AppLanguage.string(message)
+            presentedError = AppLanguage.errorMessage(message)
         default:
             break
         }
@@ -400,9 +400,11 @@ extension MatchSessionService {
             )
         } catch {
             if playerID == localID {
-                presentedError = error.localizedDescription
+                presentedError = AppLanguage.errorMessage(for: error)
             } else if let peer = participantPeers[playerID] {
-                send(.error(error.localizedDescription), to: peer)
+                // Send the code, not prose: the peer localizes it in its own language.
+                let code = (error as? GameRuleError)?.code ?? error.localizedDescription
+                send(.error(code), to: peer)
             }
         }
     }

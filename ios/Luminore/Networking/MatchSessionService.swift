@@ -304,7 +304,7 @@ final class MatchSessionService: ObservableObject {
             scheduleOpeningTurnCompletion()
             broadcastGame()
         } catch {
-            presentedError = error.localizedDescription
+            presentedError = AppLanguage.errorMessage(for: error)
         }
     }
 

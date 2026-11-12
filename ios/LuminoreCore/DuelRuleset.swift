@@ -11,7 +11,6 @@ public struct RulesEngine: GameRuleset {
         switch configuration.mode {
         case .standard: try StandardRuleset().makeGame(participants: participants, configuration: configuration, seed: seed)
         case .duel: try DuelRuleset().makeGame(participants: participants, configuration: configuration, seed: seed)
-        case .silkRoad: throw GameRuleError.unsupportedMode
         }
     }
 
@@ -19,7 +18,6 @@ public struct RulesEngine: GameRuleset {
         switch state.configuration.mode {
         case .standard: try StandardRuleset().apply(action, playerID: playerID, to: &state)
         case .duel: try DuelRuleset().apply(action, playerID: playerID, to: &state)
-        case .silkRoad: throw GameRuleError.unsupportedMode
         }
     }
 
@@ -34,8 +32,6 @@ public struct RulesEngine: GameRuleset {
             StandardRuleset().setConnection(isConnected, playerID: playerID, skipTurns: skipTurns, in: &state)
         case .duel:
             DuelRuleset().setConnection(isConnected, playerID: playerID, skipTurns: skipTurns, in: &state)
-        case .silkRoad:
-            break
         }
     }
 
@@ -43,7 +39,6 @@ public struct RulesEngine: GameRuleset {
         switch state.configuration.mode {
         case .standard: StandardRuleset().skipDisconnectedPlayers(in: &state)
         case .duel: DuelRuleset().skipDisconnectedPlayers(in: &state)
-        case .silkRoad: break
         }
     }
 }

@@ -137,7 +137,6 @@ extension GameMode {
     var titleKey: LocalizedStringKey {
         switch self {
         case .standard: "config.mode.standard"
-        case .silkRoad: "config.mode.silkRoad"
         case .duel: "config.mode.duel"
         }
     }

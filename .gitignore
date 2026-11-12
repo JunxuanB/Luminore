@@ -4,3 +4,17 @@ backend/dist/
 backend/coverage/
 backend/.dev.vars
 backend/worker-startup.cpuprofile
+build/
+.DS_Store
+
+# App Store submission material and release tooling: kept locally, not published
+docs/app-store/
+scripts/
+ios/ExportOptions-AppStore.plist
+
+# UI prototype: kept locally, not part of the app
+ios-ui-demo/
+
+# Local editor and tool state
+xcuserdata/
+.claude/
