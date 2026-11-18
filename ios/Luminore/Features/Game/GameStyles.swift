@@ -232,27 +232,31 @@ struct DevelopmentCardView: View {
     private var headerHeight: CGFloat {
         enlarged ? 110 : max(30, min(compactHeight * 0.34, 46))
     }
+    /// Cards stretched by the iPad board carry larger content, so the extra
+    /// height is used rather than left as empty white.
+    private var isTall: Bool { !enlarged && compactHeight >= 110 }
+    private var costBadgeSize: CGFloat { enlarged ? 30 : (isTall ? 25 : 18) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: enlarged ? 12 : 5) {
             HStack(alignment: .top) {
                 if card.prestige > 0 {
                     Text("\(card.prestige)")
-                        .font(enlarged ? .largeTitle.bold() : .headline.bold())
+                        .font(enlarged ? .largeTitle.bold() : (isTall ? .title2.bold() : .headline.bold()))
                 }
                 Spacer()
                 Image(systemName: card.bonus.iconName)
-                    .font(enlarged ? .title : .caption)
+                    .font(enlarged ? .title : (isTall ? .callout : .caption))
                     .foregroundStyle(card.bonus.foreground)
-                    .padding(enlarged ? 10 : 4)
+                    .padding(enlarged ? 10 : (isTall ? 6 : 4))
                     .background(card.bonus.tint, in: Circle())
             }
 
             Spacer(minLength: 0)
 
-            CardCostGrid(costs: card.cost, badgeSize: enlarged ? 30 : 18)
+            CardCostGrid(costs: card.cost, badgeSize: costBadgeSize)
         }
-        .padding(enlarged ? 18 : 6)
+        .padding(enlarged ? 18 : (isTall ? 9 : 6))
         .frame(
             maxWidth: .infinity,
             minHeight: cardHeight,

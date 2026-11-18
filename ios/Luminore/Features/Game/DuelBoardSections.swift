@@ -170,6 +170,8 @@ struct DuelTokenBoardSection: View {
     var canUsePrivilege = true
     var canReplenish = true
     var canSkipTurn = true
+    /// iPad: larger tokens and controls.
+    var roomy = false
     @Binding var selectedIndices: [Int]
     @Binding var privilegeMode: Bool
     let onTapToken: (Int) -> Void
@@ -178,7 +180,9 @@ struct DuelTokenBoardSection: View {
     let onSkipTurn: () -> Void
     @State private var showsBagContents = false
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 5)
+    private var gridSpacing: CGFloat { roomy ? 10 : 6 }
+    private var chipDiameter: CGFloat { roomy ? 64 : 46 }
+    private var columns: [GridItem] { Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: 5) }
 
     var body: some View {
         VStack(spacing: 9) {
@@ -203,13 +207,13 @@ struct DuelTokenBoardSection: View {
             }
 
             HStack(alignment: .top, spacing: 10) {
-                LazyVGrid(columns: columns, spacing: 6) {
+                LazyVGrid(columns: columns, spacing: gridSpacing) {
                     ForEach(duel.board.indices, id: \.self) { index in
                         if let color = duel.board[index] {
                             Button { onTapToken(index) } label: {
                                 DuelTokenChip(
                                     color: color,
-                                    diameter: 46,
+                                    diameter: chipDiameter,
                                     selected: selectedIndices.contains(index),
                                     dimmed: !isLocalTurn || color == .gold
                                 )
@@ -220,7 +224,7 @@ struct DuelTokenBoardSection: View {
                             .disabled(!isLocalTurn || selectableIndices.map { !$0.contains(index) } == true)
                         } else {
                             Circle().strokeBorder(.primary.opacity(0.08), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                                .frame(width: 46, height: 46).frame(maxWidth: .infinity)
+                                .frame(width: chipDiameter, height: chipDiameter).frame(maxWidth: .infinity)
                                 .duelFlightAnchor(.boardCell(index))
                         }
                     }
@@ -228,7 +232,7 @@ struct DuelTokenBoardSection: View {
                 .frame(maxWidth: .infinity)
                 .background {
                     // Faint dashed guide tracing the center-out spiral refill route.
-                    DuelSpiralPath(order: DuelRules.spiralOrder, spacing: 6)
+                    DuelSpiralPath(order: DuelRules.spiralOrder, spacing: gridSpacing)
                         .stroke(style: StrokeStyle(lineWidth: 1, lineCap: .round, dash: [2.5, 3.5]))
                         .foregroundStyle(.primary.opacity(0.12))
                         .allowsHitTesting(false)
@@ -272,14 +276,14 @@ struct DuelTokenBoardSection: View {
                         Button("common.cancel") { selectedIndices = [] }.buttonStyle(.bordered)
                     }
                 }
-                .font(.caption2.bold())
+                .font(roomy ? .caption.bold() : .caption2.bold())
                 // English labels ("Use Privilege", "Replenish") do not fit the
                 // 66pt column on one line; wrap and shrink instead of truncating.
                 .lineLimit(2)
                 .minimumScaleFactor(0.55)
                 .multilineTextAlignment(.center)
                 .controlSize(.small)
-                .frame(width: 66)
+                .frame(width: roomy ? 84 : 66)
             }
 
             Text("duel.privilege.legend")
@@ -334,11 +338,80 @@ struct DuelCardBoardSection: View {
     var selectableCardIDs: Set<String>? = nil
     var selectableRoyalIDs: Set<String>? = nil
     var canReserveDeck = true
+    /// iPad: cards are sized from the available width and height.
+    var roomy = false
     let onSelectCard: (DuelJewelCard, DuelCardSource) -> Void
     let onReserveDeck: (Int) -> Void
     let onSelectRoyal: (DuelRoyalCard) -> Void
 
     var body: some View {
+        if roomy {
+            GeometryReader { proxy in wideBoard(in: proxy.size) }
+        } else {
+            phoneBoard
+        }
+    }
+
+    private func wideBoard(in size: CGSize) -> some View {
+        let deckWidth: CGFloat = 38
+        let gap: CGFloat = 6
+        let rowGap: CGFloat = 10
+        let royalBlock: CGFloat = 132
+        let byWidth = (size.width - deckWidth - gap * 5) / 5
+        let byHeight = (size.height - royalBlock - rowGap * 3) / 3 / 1.55
+        let cardWidth = max(48, min(byWidth, byHeight))
+        let cardHeight = cardWidth * 1.55
+        return VStack(spacing: rowGap) {
+            ForEach([3, 2, 1], id: \.self) { tier in
+                HStack(spacing: gap) {
+                    deckButton(tier: tier, width: deckWidth, height: cardHeight)
+                    ForEach(Array((duel.market[tier, default: []]).enumerated()), id: \.element.id) { index, card in
+                        marketCard(card, tier: tier, index: index, width: cardWidth, height: cardHeight)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+            royalSection
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private func deckButton(tier: Int, width: CGFloat, height: CGFloat) -> some View {
+        Button { onReserveDeck(tier) } label: {
+            VStack(spacing: 2) {
+                Text(["", "Ⅰ", "Ⅱ", "Ⅲ"][tier]).font(.caption.bold())
+                Image(systemName: "rectangle.stack")
+                Text("\(duel.deckCounts[tier, default: 0])").font(.caption2.bold().monospacedDigit())
+            }
+            .foregroundStyle(.secondary)
+            .frame(width: width, height: height)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 11))
+        }
+        .buttonStyle(.plain)
+        .disabled(
+            !isLocalTurn || !canReserveDeck
+                || duel.deckCounts[tier, default: 0] == 0 || player.reservedCardCount >= 3
+                || !duel.board.contains(.gold)
+        )
+        .duelFlightAnchor(.deck(tier))
+    }
+
+    private func marketCard(_ card: DuelJewelCard, tier: Int, index: Int, width: CGFloat?, height: CGFloat) -> some View {
+        Button { onSelectCard(card, .market(cardID: card.id)) } label: {
+            DuelJewelCardView(
+                card: card,
+                affordable: showsHighlight && duelCanPurchase(card, player: player),
+                compactWidth: width,
+                compactHeight: height
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(selectableCardIDs.map { !$0.contains(card.id) } == true)
+        .duelFlightAnchor(.marketSlot(tier, index))
+        .duelFlightAnchor(.marketCard(card.id))
+    }
+
+    private var phoneBoard: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 8) {
                 ForEach([3, 2, 1], id: \.self) { tier in

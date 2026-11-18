@@ -81,6 +81,10 @@ struct OpponentCarousel: View {
 /// One opponent's public state. Shared by the phone carousel (one at a time) and
 /// the wide-layout roster (everyone at once).
 struct OpponentCard: View {
+    /// iPad roster: larger type and resource stacks.
+    var roomy = false
+    /// iPad roster: grow to share the column's height instead of hugging the top.
+    var fillsHeight = false
     let opponent: PublicPlayerSnapshot
     /// "2/3" in the carousel; `nil` in the roster, where every seat is visible.
     var position: String?
@@ -91,7 +95,10 @@ struct OpponentCard: View {
         VStack(spacing: 5) {
             HStack {
                 Label {
-                    Text(opponent.nickname).font(.headline)
+                    Text(opponent.nickname)
+                        .font(roomy ? .title3.bold() : .headline)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 } icon: {
                     Image(systemName: opponent.kind == .bot ? "cpu" : "person.crop.circle.fill")
                         .foregroundStyle(.tint)
@@ -131,16 +138,16 @@ struct OpponentCard: View {
                         gem: gem,
                         permanent: opponent.bonuses[gem, default: 0],
                         tokens: opponent.tokens[gem, default: 0],
-                        compact: true
+                        compact: !roomy
                     )
                     .gameFlightAnchor(.playerStack(opponent.id, gem))
                     .frame(maxWidth: .infinity)
                 }
             }
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 7)
-        .frame(maxWidth: .infinity)
+        .padding(.horizontal, roomy ? 14 : 9)
+        .padding(.vertical, roomy ? 12 : 7)
+        .frame(maxWidth: .infinity, maxHeight: fillsHeight ? 200 : nil)
         .background(
             Color(.secondarySystemGroupedBackground),
             in: RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -163,42 +170,14 @@ struct OpponentCard: View {
     }
 }
 
-/// Wide layout (iPad landscape): every opponent stacked in a side column, so
-/// nobody has to page through the carousel to follow the table.
-struct OpponentRoster: View {
-    let opponents: [PublicPlayerSnapshot]
-    let currentPlayerID: UUID
-    let reserveLimit: Int
-    let onOpenReservedCards: (PublicPlayerSnapshot) -> Void
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 10) {
-                ForEach(opponents) { opponent in
-                    OpponentCard(
-                        opponent: opponent,
-                        isCurrent: opponent.id == currentPlayerID,
-                        reserveLimit: reserveLimit
-                    )
-                    .contentShape(Rectangle())
-                    .onTapGesture { onOpenReservedCards(opponent) }
-                    .accessibilityHint(Text("game.opponent.reserved.hint"))
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-        }
-        .scrollBounceBehavior(.basedOnSize)
-        .background(Color(.systemGroupedBackground))
-    }
-}
-
 struct GemBankSection: View {
     let bank: [GemColor: Int]
     let isLocalTurn: Bool
     var selectableGems: Set<GemColor>? = nil
     var canTakeSelection = true
     var canPass = true
+    /// iPad: larger tokens and controls.
+    var roomy = false
     @Binding var selectedGems: [GemColor: Int]
     let onToggle: (GemColor) -> Void
     let onTake: () -> Void
@@ -215,13 +194,13 @@ struct GemBankSection: View {
                             GemTokenView(
                                 gem: gem,
                                 count: bank[gem, default: 0],
-                                diameter: 40,
+                                diameter: roomy ? 54 : 40,
                                 selectionCount: selectedGems[gem, default: 0],
                                 disabled: gem == .gold || !isLocalTurn
                             )
                             .gameFlightAnchor(.bankGem(gem))
                             Text(gem.shortLocalizedKey)
-                                .font(.caption2)
+                                .font(roomy ? .caption : .caption2)
                                 .foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity)
@@ -256,9 +235,9 @@ struct GemBankSection: View {
                         .disabled(!isLocalTurn || !canPass)
                 }
             }
-            .font(.caption2.bold())
-            .controlSize(.mini)
-            .frame(width: 58)
+            .font(roomy ? .caption.bold() : .caption2.bold())
+            .controlSize(roomy ? .small : .mini)
+            .frame(width: roomy ? 76 : 58)
         }
     }
 }
@@ -266,6 +245,7 @@ struct GemBankSection: View {
 struct NobleSection: View {
     let nobles: [NobleTile]
     var selectableNobleIDs: Set<String>? = nil
+    var tileHeight: CGFloat = 72
     let onSelect: (NobleTile) -> Void
 
     var body: some View {
@@ -277,10 +257,10 @@ struct NobleSection: View {
             HStack(spacing: 7) {
                 ForEach(nobles) { noble in
                     nobleButton(noble)
-                        .frame(maxWidth: .infinity, maxHeight: 72)
+                        .frame(maxWidth: .infinity, maxHeight: tileHeight)
                 }
             }
-            .frame(height: 72)
+            .frame(height: tileHeight)
         } else {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 7) {
@@ -307,6 +287,8 @@ struct MarketSection: View {
     let isLocalTurn: Bool
     var selectableCardIDs: Set<String>? = nil
     var canReserveDeck = true
+    /// Height of one market row. The iPad board stretches it to the free space.
+    var rowHeight: CGFloat = 78
     let onSelectCard: (DevelopmentCard, CardSource) -> Void
     let onReserveDeck: (Int) -> Void
 
@@ -317,7 +299,7 @@ struct MarketSection: View {
             ForEach([3, 2, 1], id: \.self) { tier in
                 HStack(spacing: 6) {
                     Button { onReserveDeck(tier) } label: {
-                        DeckPileView(level: tier, remaining: snapshot.deckCounts[tier, default: 0])
+                        DeckPileView(level: tier, remaining: snapshot.deckCounts[tier, default: 0], height: rowHeight)
                     }
                     .buttonStyle(.plain)
                     .disabled(
@@ -335,6 +317,7 @@ struct MarketSection: View {
                             } label: {
                                 DevelopmentCardView(
                                     card: card,
+                                    compactHeight: rowHeight + 2,
                                     isPurchasable: canPurchase(card, player: player),
                                     showsPurchaseHighlight: snapshot.configuration.affordableCardHighlightEnabled
                                 )
@@ -354,15 +337,18 @@ struct MarketSection: View {
 struct DeckPileView: View {
     let level: Int
     let remaining: Int
+    var height: CGFloat = 78
+
+    private var isTall: Bool { height >= 110 }
 
     var body: some View {
         VStack(spacing: 2) {
-            Text(levelText).font(.caption2.bold())
-            Image(systemName: "rectangle.stack.fill").font(.caption)
-            Text("\(remaining)").font(.caption2.bold().monospacedDigit())
+            Text(levelText).font(isTall ? .footnote.bold() : .caption2.bold())
+            Image(systemName: "rectangle.stack.fill").font(isTall ? .body : .caption)
+            Text("\(remaining)").font((isTall ? Font.footnote : .caption2).bold().monospacedDigit())
         }
         .foregroundStyle(.secondary)
-        .frame(width: 31, height: 78)
+        .frame(width: isTall ? 42 : 31, height: height)
         .background(
             Color(.secondarySystemGroupedBackground),
             in: RoundedRectangle(cornerRadius: 11, style: .continuous)

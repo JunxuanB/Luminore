@@ -8,6 +8,7 @@ struct GameBoardView: View {
     let onSaveAndSuspend: () -> Void
 
     @Environment(\.isWideBoard) private var isWideBoard
+    @Environment(\.isTabletBoard) private var isTabletBoard
     @State private var opponentIndex = 0
     @State private var selectedGems: [GemColor: Int] = [:]
     @State private var pendingReturn: PendingReturn?
@@ -49,12 +50,17 @@ struct GameBoardView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            if isWideBoard, let snapshot, !opponents(in: snapshot).isEmpty {
-                OpponentRoster(
+            if isWideBoard, let snapshot, let player = localPlayer {
+                StandardWideSidebar(
+                    snapshot: snapshot,
                     opponents: opponents(in: snapshot),
-                    currentPlayerID: snapshot.currentPlayerID,
-                    reserveLimit: snapshot.configuration.standardReserveLimit,
-                    onOpenReservedCards: openOpponentReservedCards
+                    player: player,
+                    isLocalTurn: isLocalTurn,
+                    onOpenOpponentReserved: openOpponentReservedCards,
+                    onSelectReserved: { card in
+                        guard activeTutorialInteraction == nil else { return }
+                        selectedCard = SelectedCard(card: card, source: .reserved(cardID: card.id))
+                    }
                 )
                 .frame(width: AdaptiveLayout.sideColumnWidth)
                 Divider()
@@ -271,6 +277,7 @@ struct GameBoardView: View {
                             selectableGems: tutorialGuide.selectableGems,
                             canTakeSelection: tutorialGuide.canTakeSelection,
                             canPass: tutorialGuide.canPass,
+                            roomy: isWideBoard,
                             selectedGems: $selectedGems,
                             onToggle: { toggleGem($0, bank: snapshot.bank) },
                             onTake: { prepareTake(player: player) },
@@ -284,6 +291,7 @@ struct GameBoardView: View {
                         NobleSection(
                             nobles: snapshot.availableNobles,
                             selectableNobleIDs: tutorialGuide.selectableNobleIDs,
+                            tileHeight: isWideBoard ? 92 : 72,
                             onSelect: { selectedNoble = $0 }
                         )
                         .padding(.vertical, roomy ? 2 : 0)
@@ -294,6 +302,7 @@ struct GameBoardView: View {
                             isLocalTurn: isLocalTurn,
                             selectableCardIDs: tutorialGuide.selectableCardIDs,
                             canReserveDeck: tutorial == nil || tutorial?.phase == .freePlay,
+                            rowHeight: isTabletBoard ? marketRowHeight(in: proxy.size.height) : 78,
                             onSelectCard: { card, source in
                                 guard tutorialGuide.allowsCard(card.id) else { return }
                                 selectedCard = SelectedCard(card: card, source: source)
@@ -343,6 +352,14 @@ struct GameBoardView: View {
                 )
             }
         }
+    }
+
+    /// The market takes whatever height the gem bank and nobles leave, split
+    /// across three rows, so the wide board has no dead space under the cards.
+    private func marketRowHeight(in available: CGFloat) -> CGFloat {
+        // Everything on the board except the three market rows.
+        let fixed: CGFloat = isWideBoard ? 246 : 330
+        return min(170, max(isWideBoard ? 96 : 78, (available - fixed) / 3))
     }
 
     private func opponents(in snapshot: ClientGameSnapshot) -> [PublicPlayerSnapshot] {

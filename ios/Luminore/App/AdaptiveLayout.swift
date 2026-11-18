@@ -45,7 +45,18 @@ private struct IsWideBoardKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+private struct IsTabletBoardKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 extension EnvironmentValues {
+    /// True on any iPad-sized screen, portrait or landscape: boards stretch
+    /// their content to the available height instead of leaving it empty.
+    var isTabletBoard: Bool {
+        get { self[IsTabletBoardKey.self] }
+        set { self[IsTabletBoardKey.self] = newValue }
+    }
+
     /// True when the board has room for its two-column (iPad landscape) layout.
     var isWideBoard: Bool {
         get { self[IsWideBoardKey.self] }
@@ -89,6 +100,7 @@ struct PhoneCanvas<Content: View>: View {
             let layout = Self.layout(for: proxy.size)
             content
                 .environment(\.isWideBoard, layout.isWide)
+                .environment(\.isTabletBoard, layout.scale != 1 || layout.isWide)
                 .environment(\.hoistsTurnBorder, layout.scale != 1 || layout.isWide)
                 .frame(width: layout.logical.width, height: layout.logical.height)
                 .scaleEffect(layout.scale)

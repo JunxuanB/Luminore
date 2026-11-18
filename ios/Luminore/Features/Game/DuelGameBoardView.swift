@@ -406,6 +406,7 @@ struct DuelGameBoardView: View {
             canUsePrivilege: tutorialGuide.canUsePrivilege,
             canReplenish: tutorialGuide.canReplenish,
             canSkipTurn: tutorialGuide.canSkipTurn,
+            roomy: isWideBoard,
             selectedIndices: $selectedIndices,
             privilegeMode: $privilegeMode,
             onTapToken: tapBoardToken,
@@ -433,6 +434,7 @@ struct DuelGameBoardView: View {
             selectableCardIDs: tutorialGuide.selectableCardIDs,
             selectableRoyalIDs: tutorialGuide.selectableRoyalIDs,
             canReserveDeck: activeTutorialInteraction == nil,
+            roomy: isWideBoard,
             onSelectCard: {
                 guard tutorialGuide.allowsCard($0.id) else { return }
                 selectedCard = DuelCardSelection(card: $0, source: $1)
