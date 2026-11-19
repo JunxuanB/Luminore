@@ -32,9 +32,19 @@ extension EnvironmentValues {
 struct TurnBorderLayer: View {
     let state: TurnBorderState
 
+    /// Debug demo scenes (screenshots) never show the glow: it would be baked
+    /// into every captured image.
+    private var isSuppressed: Bool {
+        #if DEBUG
+        DemoScene.current != nil
+        #else
+        false
+        #endif
+    }
+
     var body: some View {
         ZStack {
-            if state.isLocalTurn {
+            if state.isLocalTurn, !isSuppressed {
                 CurrentTurnBorder()
                 if let deadline = state.graceDeadline {
                     GracePeriodBorder(deadline: deadline)
